@@ -8,8 +8,8 @@
  * for the area around the glider; save waypoints+tasks as CUP; save the last
  * flight as an (unofficial) IGC file.
  *
- * Not implemented: SD card / USB stick handling, Connect, PDF documents,
- * checklists, flight declarations, map database management.
+ * Not implemented: SD card / USB stick handling, Connect, map database
+ * management. (PDF documents, checklists and flight declarations: see docs-ui.js.)
  */
 (function (global) {
   'use strict';

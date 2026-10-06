@@ -134,7 +134,10 @@ HAWK / inertial wind, AHRS, angle of attack, flaps, engine, battery monitor (LXD
 indicators/repeater, remote stick, 232 bridge (radio, transponder), team code, NOTAM, FLARM
 hardware settings, the Windows **LX Styler** program and its file formats (the on-device LAYOUT editor *is*
 implemented), SoaringSpot, SD/USB/Connect/Wi-Fi, passwords/admin, languages other than English
-(by decision), gear warning. Airspace has no keyless download source I could verify – load a file
+(by decision), gear warning. Also missing: Sounds → Alarms (time/event alarm tones), NMEA Output,
+TO NANO (task declaration to a Nano recorder), the satellite sky view and FREQ on the info pages,
+centre-of-gravity limits in Weight and Balance, Save to SD, OLC points scoring, and per-symbol fonts in
+the layout editor. Airspace has no keyless download source I could verify – load a file
 (Setup → Files and Transfer → Airspace lists the free websites).
 
 ## Layout
