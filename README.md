@@ -56,7 +56,7 @@ thermals average, thermal markers on the map; wind from FlightGear's environment
 **Audio** (Web Audio API) – the manual's modes: *Linear positive / negative, Linear, Digital
 positive / negative, Linear positive only, Digital positive only* and SC modes (*SC positive,
 negative, SC, SC mixed, Relative, Netto, Vario*); frequency at 0 / +100 / −100 % (500 / 1500 /
-200 Hz default), volume knob, mute, DEMO. Warning tones for airspace/FLARM. Optional speech (Web
+200 Hz default), volume knob, mute, DEMO. Warning tones for airspace/FLARM and confirmation alarms (task start, turn point, finish, final glide). Optional speech (Web
 Speech API): final glide reached, thermal averages.
 
 **Navigation modes** – Airport / Waypoint / Task, each with the manual's pages: map (final glide
@@ -106,7 +106,7 @@ distance** (3 TP) and a simplified FAI triangle.
 
 **Setup** (manual order) – QNH and RES, Flight Recorder, Weight and Balance, Vario Parameters,
 Display (brightness, orientation, night), Files and Transfer, Graphics, Sounds (Audio, Volumes,
-Voice), Observation Zones (defaults + the manual's templates), Optimization, Warnings, Units,
+Voice, Alarms), Observation Zones (defaults + the manual's templates), Optimization, Warnings, Units,
 Hardware (Vario Unit/TE, Network, FLARM traffic source), Polar and Glider, Profiles and Pilots
 (save/switch/rename/export), About.
 
@@ -136,7 +136,10 @@ HAWK / inertial wind, AHRS, angle of attack, flaps, engine, battery monitor (LXD
 indicators/repeater, remote stick, 232 bridge (radio, transponder), team code, NOTAM, FLARM
 hardware settings, the Windows **LX Styler** program and its file formats (the on-device LAYOUT editor *is*
 implemented), SoaringSpot, SD/USB/Connect/Wi-Fi, passwords/admin, languages other than English
-(by decision), gear warning. Airspace has no keyless download source I could verify – load a file
+(by decision), gear warning. Also missing: NMEA Output,
+TO NANO (task declaration to a Nano recorder), the satellite sky view and FREQ on the info pages,
+centre-of-gravity limits in Weight and Balance, Save to SD, OLC points scoring, and per-symbol fonts in
+the layout editor. Airspace has no keyless download source I could verify – load a file
 (Setup → Files and Transfer → Airspace lists the free websites).
 
 ## Layout

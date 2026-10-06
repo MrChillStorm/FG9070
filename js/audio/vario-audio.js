@@ -168,6 +168,13 @@
     /** Warning tone while an airspace/FLARM/altitude warning is up: 'red' (fast, high) | 'orange' | null. */
     setAlarm(level) { this.alarm = level; }
 
+    /** Confirmation alarm (manual 7.1.8.3): three beeps at the Alarms frequency / period. */
+    playAlarm() {
+      if (!this.ctx) return;
+      const s = this.S.get();
+      this.alarmBeepUntil = performance.now() + 3 * s.alarmPeriod * 1000;
+    }
+
     /** Audible check (the manual's DEMO button): rising then falling tones. */
     demo(shapeName, seconds) {
       this.demoUntil = performance.now() + (seconds || 4) * 1000;
@@ -186,6 +193,8 @@
         t = tone(VARIO_SHAPES[this.demoShape] || VARIO_SHAPES['Linear positive'], val / (s.varioRange || 5),
           { f0: s.freq0, fPlus: s.freqPlus, fMinus: s.freqMinus });
         t.vol = s.volVario;
+      } else if (this.alarmBeepUntil && performance.now() < this.alarmBeepUntil) {
+        t = { silent: false, freq: s.alarmFreq, beeping: true, period: s.alarmPeriod, duty: 0.5, vol: s.volAlarm };
       } else if (this.alarm) {
         t = { silent: false, freq: this.alarm === 'red' ? 1100 : 800, beeping: true, period: this.alarm === 'red' ? 0.28 : 0.6, duty: 0.5, vol: s.volBeep };
       } else {
