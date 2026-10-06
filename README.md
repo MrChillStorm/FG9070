@@ -1,14 +1,13 @@
 # FG9070 trainer (unofficial) – for FlightGear
 
-A browser-based simulation of the **LXNAV FG9070** soaring computer, driven by FlightGear over
+A browser-based simulation of the **FG9070** soaring computer, driven by FlightGear over
 its built-in HTTP server. It runs on a second computer or tablet and is meant for learning the
 unit's operation (modes, pages, soft keys, menus, task procedures, vario audio) next to the
 official **LX90xx/LX80xx user manual**.
 
-> **Unofficial.** Independent project, not affiliated with or endorsed by LXNAV. A training aid
-> only – never for real navigation, and not a valid flight recorder. LXNAV's manuals are **not**
-> part of this repository (download them from LXNAV); this project implements behaviour they
-> document, in its own code.
+> **Unofficial.** Independent project. A training aid only – never for real navigation, and not a
+> valid flight recorder. The LX90xx/LX80xx manuals are **not** part of this repository (download
+> them from the manufacturer); this project implements behaviour they document, in its own code.
 
 Built against: *LX90xx and LX80xx user manual v9.5 (Rev #61, April 2026)* and the installation
 manual Rev #41. Geometry comes from there: 7.0" 800×480 screen (portrait supported), four corner
@@ -134,7 +133,7 @@ Hardware (Vario Unit/TE, Network, FLARM traffic source), Polar and Glider, Profi
 HAWK / inertial wind, AHRS, angle of attack, flaps, engine, battery monitor (LXDAQ), vario
 indicators/repeater, remote stick, 232 bridge (radio, transponder), team code, NOTAM, FLARM
 hardware settings, the Windows **LX Styler** program and its file formats (the on-device LAYOUT editor *is*
-implemented), SoaringSpot, SD/USB/LXNAV Connect/Wi-Fi, passwords/admin, languages other than English
+implemented), SoaringSpot, SD/USB/Connect/Wi-Fi, passwords/admin, languages other than English
 (by decision), gear warning. Airspace has no keyless download source I could verify – load a file
 (Setup → Files and Transfer → Airspace lists the free websites).
 

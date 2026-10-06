@@ -2,7 +2,7 @@
  * Setup mode (manual 7.1) and the dialogs reachable from the navigation pages.
  *
  * Menu order and field labels follow the manual. Dialogs that need data or
- * hardware this simulator does not have (flight recorder, passwords, LXNAV
+ * hardware this simulator does not have (flight recorder, passwords, 
  * Connect, ...) open an honest "not implemented" popup instead of faking it.
  */
 (function (global) {
@@ -277,7 +277,7 @@
         info('Data', () => ctx.statusText(), { wide: true }),
         info('Update rate', () => ctx.flight.have ? `${ctx.rate || 0} Hz` : '--'),
         info('Position', () => ctx.flight.have ? `${ctx.flight.f.lat.toFixed(4)}  ${ctx.flight.f.lon.toFixed(4)}` : '--'),
-        section('Not affiliated with or endorsed by LXNAV. Training aid only; never for navigation.'),
+        section('Unofficial. Training aid only; never for navigation.'),
       ],
       live: true,
     });
@@ -340,7 +340,7 @@
       ['Hardware', '#ffb000', (s) => s.open(hardwareMenu(s, ctx))],
       ['Polar and Glider', '#5fd0ff', (s) => s.open(polarGlider(s, ctx))],
       ['Profiles and Pilots', '#ffd400', (s) => s.open(LX.setup2.profiles(s, ctx))],
-      ['LXNAV Connect', '#5fd0ff', (s) => LX.setup2.connect(s)],
+      ['Connect', '#5fd0ff', (s) => LX.setup2.connect(s)],
       ['Language', '#ffd400', (s) => LX.setup2.language(s)],
       ['Password', '#ffd400', (s) => LX.setup2.password(s)],
       ['Admin mode', '#8a8f99', (s) => LX.setup2.admin(s)],

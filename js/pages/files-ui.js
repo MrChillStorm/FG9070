@@ -8,7 +8,7 @@
  * for the area around the glider; save waypoints+tasks as CUP; save the last
  * flight as an (unofficial) IGC file.
  *
- * Not implemented: SD card / USB stick handling, LXNAV Connect, PDF documents,
+ * Not implemented: SD card / USB stick handling, Connect, PDF documents,
  * checklists, flight declarations, map database management.
  */
 (function (global) {

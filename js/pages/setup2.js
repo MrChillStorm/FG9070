@@ -178,7 +178,7 @@
     language: popup('Language', 'English only in this simulator.'),
     password: popup('Password', 'Passwords protect profiles on the real unit.\nNot simulated.'),
     admin: popup('Admin mode', 'Manufacturer / dealer functions.\nNot simulated.'),
-    connect: popup('LXNAV Connect', 'Needs an LXNAV account and a Wi-Fi module.\nNot simulated.'),
+    connect: popup('Connect', 'Needs an account and a Wi-Fi module.\nNot simulated.'),
     applyProfileAtStart() { const p = load(); if (p && p.list[p.active]) S().set(Object.assign({}, p.list[p.active].settings)); },
   };
 })(window);

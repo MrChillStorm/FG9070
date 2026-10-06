@@ -1,8 +1,7 @@
 /**
  * FG9070 simulator – namespace, persistent settings and unit formatting.
  *
- * Unofficial, independent training aid. Not affiliated with or endorsed by
- * LXNAV. All internal quantities are SI (m, m/s, kg, degrees true); units are
+ * Unofficial, independent training aid. All internal quantities are SI (m, m/s, kg, degrees true); units are
  * applied only when formatting for display.
  *
  * Uses the generic helpers / HTTP sources in js/shared (AeroPanel namespace).

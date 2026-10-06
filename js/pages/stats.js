@@ -9,7 +9,7 @@
  *
  * Replay (VIEW): map with the flown path coloured by altitude / ground speed /
  * climb, a barogram, and four sub-views (map, statistics, optimisation, task).
- * Not implemented: SaveToSD/LXNAV Connect, OLC points scoring.
+ * Not implemented: SaveToSD/Connect, OLC points scoring.
  */
 (function (global) {
   'use strict';
