@@ -1,6 +1,6 @@
-# FG9070 trainer (unofficial) – for FlightGear
+# FG9070 trainer for FlightGear
 
-A browser-based simulation of the **FG9070** soaring computer, driven by FlightGear over
+A browser-based simulation of a popular soaring computer, driven by FlightGear over
 its built-in HTTP server. It runs on a second computer or tablet and is meant for learning the
 unit's operation (modes, pages, soft keys, menus, task procedures, vario audio) next to the
 official **LX90xx/LX80xx user manual**.
