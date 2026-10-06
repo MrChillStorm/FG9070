@@ -1,0 +1,12 @@
+{
+  "name": "fg9070-trainer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Unofficial browser trainer for a soaring computer, driven by FlightGear over HTTP",
+  "license": "MIT",
+  "scripts": {
+    "test": "for t in tests/*.test.js; do node $t || exit 1; done",
+    "mock": "node tools/mock-fgfs-server.js",
+    "serve": "python3 -m http.server 8080"
+  }
+}
