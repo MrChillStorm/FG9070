@@ -1,4 +1,4 @@
-# FG9070 trainer for FlightGear
+# FG9070 Soaring Computer for FlightGear
 
 A browser-based simulation of a popular soaring computer, driven by FlightGear over
 its built-in HTTP server. It runs on a second computer or tablet and is meant for learning the
@@ -111,7 +111,7 @@ Hardware (Vario Unit/TE, Network, FLARM traffic source), Polar and Glider, Profi
 **FLARM traffic** (colour by relative height, blinking when lost, PCAS circles for powered traffic, MacCready glide rings on the radar, flown paths, voice warnings with the manual's warning contents) – simulated demo traffic, or FlightGear AI/multiplayer aircraft (gliders only by default, recognised by model name; extra words and an "all aircraft" option in Setup → Hardware → FLARM) via
 `/json/ai/models` (**experimental**, tested against the mock server only).
 
-## Limitations vs the real FG9070 (read before training on it)
+## Limitations vs the real computer (read before training on it)
 
 - **Map data is only as good as what you load.** Offline you get a *procedural terrain* and a
   *demo task/airfields/airspace*; with internet the OurAirports/tile/terrain downloads replace them
