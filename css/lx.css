@@ -1,0 +1,162 @@
+/* ==========================================================================
+   FG9070 trainer – device frame + LCD styling.
+   Unofficial, independent simulation. Not affiliated with LXNAV.
+   Geometry from the LX90xx/80xx manuals: 7.0" 800x480 display, four corner
+   knobs, four soft keys above and four below the screen.
+   ========================================================================== */
+
+:root {
+  --font: Verdana, 'DejaVu Sans', 'Segoe UI', Arial, sans-serif;
+  --bezel: #1c1d1f;
+  --bezel-hi: #34363a;
+  --lcd-bg: #000;
+  --ink: #fff;
+  --ink-dim: #b9bec6;
+  --sel: #5b5f66;
+  --accent: #ffd400;
+  --good: #29d35a;
+  --bad: #ff3b30;
+  --mag: #ff2fd5;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: #0b0b0c; overflow: hidden; font-family: var(--font); user-select: none; -webkit-user-select: none; }
+
+#stage { position: fixed; inset: 0; overflow: hidden; }
+
+/* ------------------------------------------------------------------ device */
+#device {
+  /* centred on the stage independent of its own size; JS scales it with transform so the unit
+     always fits the window (a transform does not change the layout box, so no flow centring) */
+  position: absolute; left: 50%; top: 50%; transform-origin: center center;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(145deg, #2a2b2e, #151618);
+  border-radius: 18px;
+  box-shadow: 0 0 0 2px #050505, 0 18px 50px rgba(0, 0, 0, .7), inset 0 0 0 2px var(--bezel-hi);
+}
+#device.landscape { --lw: 800px; --lh: 480px; }
+#device.portrait  { --lw: 480px; --lh: 800px; }
+#device { width: calc(var(--lw) + 48px); height: calc(var(--lh) + 144px); }
+
+#lcd-wrap {
+  position: absolute; left: 24px; top: 72px; width: var(--lw); height: var(--lh);
+  background: #000; border-radius: 3px; overflow: hidden;
+  box-shadow: 0 0 0 3px #08090a, 0 0 0 5px #3a3c40;
+}
+#lcd { position: absolute; inset: 0; width: var(--lw); height: var(--lh); overflow: hidden; background: var(--lcd-bg); color: var(--ink); font-family: var(--font); }
+
+
+.brand { position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%); font: 600 8px var(--font); letter-spacing: .25em; color: #4a4d52; text-transform: uppercase; pointer-events: none; }
+
+/* knobs */
+.knob {
+  position: absolute; width: 64px; height: 64px; border-radius: 50%; cursor: grab; touch-action: none;
+  background:
+    radial-gradient(circle at 50% 50%, #2a2b2d 0 55%, transparent 56%),
+    repeating-conic-gradient(#3d3f43 0 6deg, #1b1c1e 6deg 12deg);
+  box-shadow: 0 2px 6px #000, inset 0 0 0 2px #0a0a0a, inset 0 0 0 3px #4a4d52;
+  --a: 0deg;
+}
+.knob:active { cursor: grabbing; }
+.knob i { position: absolute; left: 50%; top: 6px; width: 3px; height: 14px; margin-left: -1.5px; background: #d8d8d8; border-radius: 2px; transform-origin: 50% 26px; transform: rotate(var(--a)); }
+.knob span { position: absolute; left: 0; right: 0; top: 50%; margin-top: -5px; text-align: center; font: 700 8px var(--font); letter-spacing: .08em; color: #8b8f96; pointer-events: none; }
+#knob-vol  { left: 6px;  top: 4px; }
+#knob-mode { right: 6px; top: 4px; }
+#knob-zoom { left: 6px;  bottom: 4px; }
+#knob-page { right: 6px; bottom: 4px; }
+
+/* push buttons */
+.btnrow { position: absolute; left: 84px; right: 84px; height: 72px; display: flex; align-items: center; justify-content: space-around; }
+.btnrow.top { top: 0; }
+.btnrow.bottom { bottom: 0; }
+.pbtn {
+  width: 18%; max-width: 120px; height: 30px; border-radius: 15px; border: 1px solid #000; cursor: pointer;
+  background: linear-gradient(#303236, #141517); box-shadow: 0 1px 0 #4b4e53 inset, 0 2px 4px #000;
+}
+.pbtn:active, .pbtn.down { background: linear-gradient(#141517, #26282b); transform: translateY(1px); }
+.als { position: absolute; left: 50%; bottom: 3px; margin-left: -45px; width: 5px; height: 5px; border-radius: 50%; background: #0e3d1a; box-shadow: 0 0 0 1px #000; }
+
+#hint { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); background: #000c; color: #fff; font: 12px var(--font); padding: 6px 12px; border-radius: 6px; z-index: 9; }
+
+/* ============================================================== LCD content */
+.view { position: absolute; inset: 0; overflow: hidden; }
+.hidden { display: none !important; }
+
+/* status bar (top, over the map): GPS | mode:target | rel. bearing | time | battery */
+.statusbar { position: absolute; left: 0; right: 0; top: 0; height: 26px; background: rgba(0, 0, 0, .78); display: flex; align-items: center; padding: 0 6px; font-size: 15px; z-index: 3; }
+.statusbar .gps { width: 34px; height: 16px; flex: none; }
+.statusbar .target { margin-left: 8px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.statusbar .relbrg { position: absolute; left: 50%; transform: translateX(-50%); font-size: 16px; }
+.statusbar .clock { margin-left: auto; margin-right: 10px; font-variant-numeric: tabular-nums; }
+.statusbar .batt { width: 24px; height: 12px; border: 1px solid #fff; border-radius: 2px; position: relative; }
+.statusbar .batt::after { content: ''; position: absolute; right: -4px; top: 3px; width: 3px; height: 4px; background: #fff; }
+.statusbar .batt b { position: absolute; left: 1px; top: 1px; bottom: 1px; width: 85%; background: var(--good); }
+
+/* navbox row (bottom) */
+.navrow { position: absolute; left: 0; right: 0; bottom: 0; display: flex; background: rgba(0, 0, 0, .86); z-index: 3; }
+.navbox { flex: 1; min-width: 0; padding: 2px 4px 3px; text-align: center; }
+.navbox .t { font-size: 11px; color: #cfd3d9; line-height: 13px; }
+.navbox .v { font-size: 26px; line-height: 30px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.navbox .v small { font-size: 15px; }
+.portrait .navbox .v { font-size: 19px; }
+.portrait .navbox .v small { font-size: 11px; }
+
+/* softkey labels over the screen edges (dynamic buttons) */
+.softkeys { position: absolute; left: 0; right: 0; z-index: 9; display: flex; pointer-events: none; }
+.softkeys.top { top: 0; }
+.softkeys.bottom { bottom: 0; }
+.softkeys span { flex: 1; text-align: center; background: #000; color: #fff; border: 1px solid #5a5e66; font: 12px/22px var(--font); height: 24px; margin: 0 1px; }
+.softkeys span.empty { visibility: hidden; }
+.softkeys.persist span { background: #14161a; border-color: #444850; }
+
+/* list dialogs / setup */
+.titlebar { position: absolute; left: 0; right: 0; top: 0; height: 24px; background: linear-gradient(#4a4d53, #2a2c30); text-align: center; font-size: 15px; line-height: 24px; border-bottom: 1px solid #000; }
+.menu { position: absolute; left: 0; right: 0; top: 24px; bottom: 26px; overflow: hidden; }
+.menu .row { display: flex; align-items: center; height: 30px; padding: 0 10px; font-size: 17px; border-bottom: 1px solid #111; }
+.menu .row.sel { background: var(--sel); box-shadow: inset 0 0 0 1px #aab0ba; }
+.menu .row .ic { width: 18px; height: 18px; border-radius: 4px; margin-right: 12px; flex: none; }
+.menu .row .val { margin-left: auto; color: var(--accent); }
+.menu.grid { display: grid; grid-template-columns: repeat(var(--cols, 3), 1fr); align-content: start; gap: 6px; padding: 8px; }
+.menu.grid .row { flex-direction: column; justify-content: center; height: 86px; border: 1px solid #2c2f35; border-radius: 6px; padding: 4px; font-size: 12px; text-align: center; }
+.menu.grid .row .ic { width: 38px; height: 38px; margin: 0 0 6px; }
+.menu.grid .row.sel { background: #2f3a52; box-shadow: inset 0 0 0 2px #7aa6ff; }
+
+/* form dialogs (spin/select/check fields) */
+.form { position: absolute; left: 0; right: 0; top: 24px; bottom: 26px; padding: 6px 8px; overflow: hidden; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px 6px; align-content: start; }
+.portrait .form { grid-template-columns: 1fr 1fr; }
+.field { background: #14161a; border: 1px solid #2b2e35; border-radius: 3px; padding: 2px 6px 4px; min-height: 46px; }
+.field .lab { font-size: 11px; color: #8fb6ff; }
+.field .val { font-size: 19px; color: #fff; line-height: 24px; }
+.field.sel { border-color: #aab0ba; background: #1d2128; }
+.field.edit { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.field.edit .val { color: var(--accent); }
+.field.wide { grid-column: 1 / -1; }
+.field.sect { grid-column: 1 / -1; min-height: 18px; background: none; border: 0; padding: 0; }
+.field.sect .lab { color: #5fd0ff; font-size: 12px; }
+.dlg-overlay { position: absolute; inset: 0; background: #000; z-index: 6; }
+.dlg-overlay.over { background: rgba(0, 0, 0, .55); }
+.popup { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); min-width: 260px; max-width: 80%; background: #0d0f12; border: 2px solid #aab0ba; border-radius: 6px; z-index: 7; }
+.popup .title { background: #3a3d44; text-align: center; padding: 3px; font-size: 14px; }
+.popup .body { padding: 10px 12px; font-size: 16px; }
+
+.toast { position: absolute; left: 50%; top: 40px; transform: translateX(-50%); background: rgba(0, 0, 0, .85); border: 1px solid #aab0ba; padding: 6px 14px; border-radius: 4px; font-size: 15px; z-index: 12; pointer-events: none; }
+
+/* map canvas + symbol canvases */
+canvas.layer { position: absolute; left: 0; top: 0; }
+
+/* statistics / info text */
+.pre { font-size: 15px; line-height: 21px; padding: 8px 10px; white-space: pre; font-variant-numeric: tabular-nums; }
+.pre .k { color: #8fb6ff; }
+table.list { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.list th { text-align: left; font-weight: 400; color: #8fb6ff; font-size: 12px; padding: 2px 6px; border-bottom: 1px solid #222; }
+table.list td { padding: 3px 6px; border-bottom: 1px solid #14161a; white-space: nowrap; font-variant-numeric: tabular-nums; }
+table.list tr.sel td { background: var(--sel); }
+
+#help { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 20; background: #101215ee; color: #e6e8ec; border: 1px solid #4a4d53; border-radius: 10px; padding: 14px 18px; font: 13px var(--font); max-width: 92vw; }
+#help table { border-collapse: collapse; margin: 8px 0; }
+#help td { padding: 3px 10px 3px 0; vertical-align: top; }
+#help td:first-child { color: #ffd400; white-space: nowrap; }
+#help i { color: #9aa0aa; font-size: 11px; }
+
+#rot { position: fixed; right: 8px; top: 8px; z-index: 15; width: 34px; height: 34px; border-radius: 50%; border: 1px solid #3a3d44; background: #14161aaa; color: #9aa0aa; font-size: 18px; line-height: 1; cursor: pointer; opacity: .55; }
+#rot:hover { opacity: 1; color: #fff; }

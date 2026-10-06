@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0b0b0c">
+  <title>FG9070 Trainer (unofficial) – FlightGear</title>
+  <link rel="stylesheet" href="css/lx.css">
+</head>
+<body>
+  <div id="stage">
+    <div id="device" class="landscape">
+
+      <!-- four rotary knobs (manual ch. 6.1.4): upper-left VOLUME, upper-right MODE,
+           lower-left ZOOM, lower-right PAGE -->
+      <div class="knob" id="knob-vol"  data-knob="vol"  title="VOLUME  ( [ ] keys )"><i></i><span>VOLUME</span></div>
+      <div class="knob" id="knob-mode" data-knob="mode" title="MODE  ( ← → keys, swipe left/right )"><i></i><span>MODE</span></div>
+      <div class="knob" id="knob-zoom" data-knob="zoom" title="ZOOM  ( + − keys, wheel on map )"><i></i><span>ZOOM</span></div>
+      <div class="knob" id="knob-page" data-knob="page" title="PAGE  ( ↑ ↓ keys, swipe up/down )"><i></i><span>PAGE</span></div>
+
+      <!-- eight push buttons: 1-4 along the top, 5-8 along the bottom -->
+      <div class="btnrow top">
+        <button class="pbtn" data-btn="0" title="key 1"></button>
+        <button class="pbtn" data-btn="1" title="key 2"></button>
+        <button class="pbtn" data-btn="2" title="key 3"></button>
+        <button class="pbtn" data-btn="3" title="key 4"></button>
+      </div>
+      <div class="btnrow bottom">
+        <button class="pbtn" data-btn="4" title="key 5"></button>
+        <button class="pbtn" data-btn="5" title="key 6"></button>
+        <button class="pbtn" data-btn="6" title="key 7"></button>
+        <button class="pbtn" data-btn="7" title="key 8"></button>
+        <i class="als" title="ambient light sensor"></i>
+      </div>
+
+      <div id="lcd-wrap"><div id="lcd"></div></div>
+      <div class="brand">unofficial simulator</div>
+    </div>
+  </div>
+
+  <button id="rot" title="Rotate: portrait / landscape (O)" aria-label="Rotate">&#x27F3;</button>
+  <div id="help" hidden>
+    <b>Controls</b>
+    <table>
+      <tr><td>← →</td><td>MODE knob (Airport · Waypoint · Task · Statistics · Setup · Information · Near)</td></tr>
+      <tr><td>↑ ↓</td><td>PAGE knob (pages, menu entries, edit values)</td></tr>
+      <tr><td>+ −</td><td>ZOOM knob (also mouse wheel on the screen)</td></tr>
+      <tr><td>[ ]</td><td>VOLUME knob</td></tr>
+      <tr><td>1–4 / 5–8</td><td>top / bottom push buttons (first press shows the functions, second executes)</td></tr>
+      <tr><td>Enter / Esc</td><td>lower-right (SELECT, EDIT) / lower-left (CLOSE) button</td></tr>
+      <tr><td>N · O · M</td><td>night · orientation · mute</td></tr>
+      <tr><td>swipe</td><td>left/right = mode, up/down = page; drag a knob to turn it</td></tr>
+    </table>
+    <i>Press ? to close. Unofficial simulator – not for navigation.</i>
+  </div>
+  <div id="hint" hidden>Click or press a key to enable audio</div>
+
+  <!-- helpers copied from the AeroPanel project (math, HTTP/WebSocket sources); they keep the AeroPanel namespace -->
+  <script src="js/shared/util.js"></script>
+  <script src="js/shared/http-source.js"></script>
+  <script src="js/shared/ws-source.js"></script>
+
+  <script src="js/core/lx.js"></script>
+  <script src="js/data/props.js"></script>
+  <script src="js/flight/geo.js"></script>
+  <script src="js/flight/polar.js"></script>
+  <script src="js/flight/te.js"></script>
+  <script src="js/flight/state.js"></script>
+  <script src="js/nav/nav.js"></script>
+  <script src="js/nav/task.js"></script>
+  <script src="js/nav/sun.js"></script>
+  <script src="js/nav/files.js"></script>
+  <script src="js/nav/warnings.js"></script>
+  <script src="js/nav/dem.js"></script>
+  <script src="js/nav/optimizer.js"></script>
+  <script src="js/nav/recorder.js"></script>
+  <script src="js/data/demo-xc.js"></script>
+  <script src="js/data/ai-traffic.js"></script>
+  <script src="js/audio/vario-audio.js"></script>
+
+  <script src="js/ui/device.js"></script>
+  <script src="js/ui/screen.js"></script>
+  <script src="js/ui/symbols.js"></script>
+  <script src="js/ui/map.js"></script>
+  <script src="js/ui/forms.js"></script>
+  <script src="js/pages/navboxes.js"></script>
+  <script src="js/pages/nav-pages.js"></script>
+  <script src="js/pages/stats.js"></script>
+  <script src="js/pages/setup.js"></script>
+  <script src="js/pages/setup2.js"></script>
+  <script src="js/pages/task-edit.js"></script>
+  <script src="js/pages/task-map.js"></script>
+  <script src="js/pages/layout-editor.js"></script>
+  <script src="js/pages/docs-ui.js"></script>
+  <script src="js/pages/files-ui.js"></script>
+  <script src="js/pages/warnings-ui.js"></script>
+  <script src="js/pages/info.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
