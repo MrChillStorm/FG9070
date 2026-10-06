@@ -56,7 +56,7 @@ thermals average, thermal markers on the map; wind from FlightGear's environment
 **Audio** (Web Audio API) – the manual's modes: *Linear positive / negative, Linear, Digital
 positive / negative, Linear positive only, Digital positive only* and SC modes (*SC positive,
 negative, SC, SC mixed, Relative, Netto, Vario*); frequency at 0 / +100 / −100 % (500 / 1500 /
-200 Hz default), volume knob, mute, DEMO. Warning tones for airspace/FLARM. Optional speech (Web
+200 Hz default), volume knob, mute, DEMO. Warning tones for airspace/FLARM and confirmation alarms (task start, turn point, finish, final glide). Optional speech (Web
 Speech API): final glide reached, thermal averages.
 
 **Navigation modes** – Airport / Waypoint / Task, each with the manual's pages: map (final glide
