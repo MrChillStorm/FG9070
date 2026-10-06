@@ -68,32 +68,35 @@
     /* ---- in-flight general statistics */
     drawFlight(fl) {
       const c = this.c, W = this.W, H = this.H, mc = this.ctx.settings.get().mc;
-      const chartH = Math.round(H * 0.4);
+      const showTh = this.showThermals !== false; // THERMALS soft key (manual 7.4.2)
+      const chartH = showTh ? Math.round(H * 0.4) : 0;
       const x0 = 56, y0 = 36, cw = W - x0 - 100, ch = chartH - 28;
-      const ths = fl.thermals.slice(-4);
-      const amin = Math.min(...ths.map((t) => t.alt0), fl.f.alt) - 100;
-      const amax = Math.max(...ths.map((t) => t.alt1), fl.f.alt) + 100;
-      c.strokeStyle = '#3a3d44'; c.lineWidth = 1; c.strokeRect(x0, y0, cw, ch);
-      c.font = '11px Verdana'; c.fillStyle = '#9aa0aa'; c.textAlign = 'right';
-      for (let i = 0; i <= 3; i++) {
-        const a = amin + ((amax - amin) * i) / 3, y = y0 + ch - (ch * i) / 3;
-        c.fillText(Math.round(LX.units.alt(a)) + '', x0 - 4, y + 4);
-        c.beginPath(); c.moveTo(x0, y); c.lineTo(x0 + cw, y); c.stroke();
+      if (showTh) {
+        const ths = fl.thermals.slice(-4);
+        const amin = Math.min(...ths.map((t) => t.alt0), fl.f.alt) - 100;
+        const amax = Math.max(...ths.map((t) => t.alt1), fl.f.alt) + 100;
+        c.strokeStyle = '#3a3d44'; c.lineWidth = 1; c.strokeRect(x0, y0, cw, ch);
+        c.font = '11px Verdana'; c.fillStyle = '#9aa0aa'; c.textAlign = 'right';
+        for (let i = 0; i <= 3; i++) {
+          const a = amin + ((amax - amin) * i) / 3, y = y0 + ch - (ch * i) / 3;
+          c.fillText(Math.round(LX.units.alt(a)) + '', x0 - 4, y + 4);
+          c.beginPath(); c.moveTo(x0, y); c.lineTo(x0 + cw, y); c.stroke();
+        }
+        if (!ths.length) sym.otext(c, 'No thermals yet', x0 + cw / 2, y0 + ch / 2, 16, { align: 'center', weight: 'normal' });
+        ths.forEach((t, i) => {
+          const colw = cw / 4, x = x0 + colw * i + colw * 0.2, w = colw * 0.6;
+          const yTop = y0 + ch - ((t.alt1 - amin) / (amax - amin)) * ch, yBot = y0 + ch - ((t.alt0 - amin) / (amax - amin)) * ch;
+          c.fillStyle = t.avg >= mc + 0.5 ? '#ff3b30' : t.avg <= mc - 0.5 ? '#2f7bff' : '#ff9a1f';
+          c.fillRect(x, yTop, w, yBot - yTop);
+          c.fillStyle = '#fff'; c.textAlign = 'center'; c.font = '13px Verdana';
+          c.fillText(fm.vario(t.avg), x + w / 2, y0 + ch + 16);
+          // between thermals: average efficiency of the glide (manual 7.4.2)
+          if (i > 0) { const p = ths[i - 1]; const d = geo.dist(p.lat, p.lon, t.lat, t.lon); const lost = p.alt1 - t.alt0; c.fillStyle = '#8fb6ff'; c.font = '11px Verdana'; c.fillText(lost > 20 ? `E ${Math.round(d / lost)}` : '', x0 + colw * i, y0 + 12); }
+        });
+        const avg4 = fl.lastThermalsAvg(4);
+        sym.otext(c, avg4 === null ? '---' : fm.vario(avg4), W - 14, y0 + 40, 30, { align: 'right', color: '#ff7a5c' });
+        sym.otext(c, LX.units.label('vario'), W - 14, y0 + 62, 13, { align: 'right', weight: 'normal' });
       }
-      if (!ths.length) sym.otext(c, 'No thermals yet', x0 + cw / 2, y0 + ch / 2, 16, { align: 'center', weight: 'normal' });
-      ths.forEach((t, i) => {
-        const colw = cw / 4, x = x0 + colw * i + colw * 0.2, w = colw * 0.6;
-        const yTop = y0 + ch - ((t.alt1 - amin) / (amax - amin)) * ch, yBot = y0 + ch - ((t.alt0 - amin) / (amax - amin)) * ch;
-        c.fillStyle = t.avg >= mc + 0.5 ? '#ff3b30' : t.avg <= mc - 0.5 ? '#2f7bff' : '#ff9a1f';
-        c.fillRect(x, yTop, w, yBot - yTop);
-        c.fillStyle = '#fff'; c.textAlign = 'center'; c.font = '13px Verdana';
-        c.fillText(fm.vario(t.avg), x + w / 2, y0 + ch + 16);
-        // between thermals: average efficiency of the glide (manual 7.4.2)
-        if (i > 0) { const p = ths[i - 1]; const d = geo.dist(p.lat, p.lon, t.lat, t.lon); const lost = p.alt1 - t.alt0; c.fillStyle = '#8fb6ff'; c.font = '11px Verdana'; c.fillText(lost > 20 ? `E ${Math.round(d / lost)}` : '', x0 + colw * i, y0 + 12); }
-      });
-      const avg4 = fl.lastThermalsAvg(4);
-      sym.otext(c, avg4 === null ? '---' : fm.vario(avg4), W - 14, y0 + 40, 30, { align: 'right', color: '#ff7a5c' });
-      sym.otext(c, LX.units.label('vario'), W - 14, y0 + 62, 13, { align: 'right', weight: 'normal' });
       const f = fl.f;
       const circPct = fl.thermals.length ? Math.round((fl.thermals.reduce((a, t) => a + t.dur, 0) / Math.max(1, f.flightTime)) * 100) : 0;
       const rows = [
@@ -196,7 +199,7 @@
     button(i) {
       const l = this.softkeys().labels[i];
       const rec = this.ctx.recorder;
-      if (l === 'THERMALS') { this.showThermals = !this.showThermals; this.scr.toast('Thermal view toggle: not implemented', 1500); }
+      if (l === 'THERMALS') { this.showThermals = this.showThermals === false; }
       else if (l === 'VIEW' && rec && rec.flights[this.logSel]) this.scr.open(LX.replay.view(this.scr, this.ctx, this.logSel));
       else if (l === 'SAVE') { if (rec && rec.flights[this.logSel] && rec.downloadIGC(this.logSel)) this.scr.toast('IGC file downloaded (unofficial)', 2500); else this.scr.toast('No flight selected', 1500); }
       else if (l === 'DELETE' && rec && rec.flights[this.logSel]) this.scr.open(new LX.forms.Popup(this.scr, 'Delete flight', 'Delete this flight from the logbook?', { 4: { label: 'NO', run: (s) => s.close() }, 7: { label: 'YES', run: (s) => { rec.remove(this.logSel); this.logSel = 0; s.close(); } } }));

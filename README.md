@@ -138,6 +138,7 @@ hardware settings, the Windows **LX Styler** program and its file formats (the o
 implemented), SoaringSpot, SD/USB/Connect/Wi-Fi, passwords/admin, languages other than English
 (by decision), gear warning. Also missing: NMEA Output,
 TO NANO (task declaration to a Nano recorder), the satellite sky view and FREQ on the info pages,
+the Thermal Mode setup (enable, page zoom, track length/colouring, switch angle),
 centre-of-gravity limits in Weight and Balance, Save to SD, OLC points scoring, and per-symbol fonts in
 the layout editor. Airspace has no keyless download source I could verify – load a file
 (Setup → Files and Transfer → Airspace lists the free websites).
