@@ -54,8 +54,8 @@
 
   /* ------------------------------------------------------------- raster tiles */
   const TILE_STYLES = {
-    opentopomap: { url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', subs: ['a', 'b', 'c'], max: 16, attr: '© OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA)' },
-    osm: { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', subs: [''], max: 18, attr: '© OpenStreetMap contributors' },
+    opentopomap: { url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', subs: ['a', 'b', 'c'], max: 16, attr: '© OpenStreetMap, SRTM, OpenTopoMap (CC-BY-SA)' },
+    osm: { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', subs: [''], max: 18, attr: '© OpenStreetMap' },
   };
   const tileCache = new Map();
   let tileLoads = 0;
@@ -225,10 +225,10 @@
           c.restore();
         }
       }
-      c.font = '10px Verdana, sans-serif';
+      c.font = '8px Verdana, sans-serif'; // attribution is a licence requirement: keep it, but small and in the corner
       c.textAlign = 'right';
-      c.fillStyle = 'rgba(0,0,0,.65)';
-      c.fillText(st.attr, vp.rect.x + vp.rect.w - 4, vp.rect.y + vp.rect.h - 40);
+      c.fillStyle = 'rgba(0,0,0,.5)';
+      c.fillText(st.attr, vp.rect.x + vp.rect.w - 3, vp.rect.y + vp.rect.h - 3);
       c.textAlign = 'left';
     }
 
