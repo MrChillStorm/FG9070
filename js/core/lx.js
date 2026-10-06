@@ -74,6 +74,11 @@
     volSC: 60,
     volSpeech: 60,
     volBeep: 60,
+    volAlarm: 60,
+    // Setup > Sounds > Alarms (manual 7.1.8.3): tone for confirmation points
+    alarmFreq: 1000, // Hz
+    alarmPeriod: 0.4, // s per beep
+    alarmStart: true, alarmTurn: true, alarmFinish: true, alarmFinalGlide: true, alarmEvent: false,
     mute: false,
     speech: false,
     // Polar and glider

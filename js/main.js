@@ -63,6 +63,10 @@
     /** Show task messages: toasts, or a popup with buttons (START / NEXT). */
     messages(list) {
       (list || []).forEach((m) => {
+        const alarm = m.id === 'started' ? 'alarmStart' : m.id === 'finished' ? 'alarmFinish'
+          : (m.id === 'next?' || (m.id === 'inside' && m.text === 'Inside zone')) ? 'alarmTurn'
+          : /^Event marked/.test(m.text) ? 'alarmEvent' : null;
+        if (alarm && ctx.settings.get()[alarm]) audio.playAlarm();
         if (source instanceof LX.DemoXC && !this._demoManual) {
           // the demo "pilot" presses the buttons for us
           if (m.id === 'start?') { this.messages(runner.start(flight.f, performance.now())); return; }
@@ -200,7 +204,7 @@
         // announcements
         const n = flight.navTo(nav.target('tsk'));
         if (n) {
-          if (prevArr !== null && prevArr < 0 && n.arrival >= 0) LX.speech.say('Final glide reached');
+          if (prevArr !== null && prevArr < 0 && n.arrival >= 0) { LX.speech.say('Final glide reached'); if (ctx.settings.get().alarmFinalGlide) audio.playAlarm(); }
           prevArr = n.arrival;
         }
         if (flight.thermals.length > prevThermals) {

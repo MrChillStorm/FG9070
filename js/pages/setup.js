@@ -101,6 +101,7 @@
         spin('Speed to fly', 'volSC', 0, 100, 5, (v) => v + '%', { coarse: 4 }),
         spin('Speech', 'volSpeech', 0, 100, 5, (v) => v + '%', { coarse: 4 }),
         spin('Beep', 'volBeep', 0, 100, 5, (v) => v + '%', { coarse: 4 }),
+        spin('Alarm', 'volAlarm', 0, 100, 5, (v) => v + '%', { coarse: 4 }),
         check('', 'mute', 'Mute all'),
       ],
     });
@@ -118,12 +119,29 @@
     });
   }
 
+  function alarms(scr, ctx) {
+    return new FormView(scr, {
+      title: 'Alarms',
+      fields: [
+        check('', 'alarmStart', 'Task started'),
+        check('', 'alarmTurn', 'Inside turn point zone'),
+        check('', 'alarmFinish', 'Task finished'),
+        check('', 'alarmFinalGlide', 'Final glide reached'),
+        check('', 'alarmEvent', 'Event marked'),
+        spin('Frequency', 'alarmFreq', 200, 3000, 50, (v) => v + 'Hz', { coarse: 4 }),
+        spin('Period', 'alarmPeriod', 0.1, 1, 0.05, (v) => num(v, 2) + 's', { coarse: 2 }),
+        spin('Volume', 'volAlarm', 0, 100, 5, (v) => v + '%', { coarse: 4 }),
+      ],
+      buttons: { 6: { label: 'DEMO', run: () => { ctx.audio.unlock(); ctx.audio.playAlarm(); } } },
+    });
+  }
+
   function soundsMenu(scr, ctx) {
     return new MenuView(scr, [
       { label: 'Audio Settings', color: '#ffb000', run: (s) => s.open(audioSettings(s, ctx)) },
       { label: 'Volumes', color: '#ffb000', run: (s) => s.open(volumes(s)) },
       { label: 'Voice', color: '#ffb000', run: (s) => s.open(voice(s)) },
-      { label: 'Alarms', color: '#ff5a4a', run: (s) => notImplemented(s, 'Alarms') },
+      { label: 'Alarms', color: '#ff5a4a', run: (s) => s.open(alarms(s, ctx)) },
     ], { title: 'Sounds' });
   }
 

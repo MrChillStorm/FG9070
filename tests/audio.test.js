@@ -29,3 +29,15 @@ assert.ok(T(lp, 0.9, p).period < T(lp, 0.2, p).period);
 assert.strictEqual(T(dig, 0.41, p).freq, T(dig, 0.44, p).freq);
 assert.notStrictEqual(T(dig, 0.41, p).freq, T(dig, 0.61, p).freq);
 console.log('audio tone tests passed');
+
+// confirmation alarm (manual 7.1.8.3): needs an unlocked audio context, then plays three beeps
+{
+  const set = { get: () => ({ alarmPeriod: 0.4 }) };
+  const a = new LX.VarioAudio(set);
+  a.playAlarm();
+  assert.ok(!a.alarmBeepUntil, 'no alarm before audio is unlocked');
+  a.ctx = {};
+  const t0 = performance.now();
+  a.playAlarm();
+  assert.ok(Math.abs(a.alarmBeepUntil - t0 - 1200) < 50, 'three beeps of 0.4 s');
+}

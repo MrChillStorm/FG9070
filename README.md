@@ -104,7 +104,7 @@ distance** (3 TP) and a simplified FAI triangle.
 
 **Setup** (manual order) – QNH and RES, Flight Recorder, Weight and Balance, Vario Parameters,
 Display (brightness, orientation, night), Files and Transfer, Graphics, Sounds (Audio, Volumes,
-Voice), Observation Zones (defaults + the manual's templates), Optimization, Warnings, Units,
+Voice, Alarms), Observation Zones (defaults + the manual's templates), Optimization, Warnings, Units,
 Hardware (Vario Unit/TE, Network, FLARM traffic source), Polar and Glider, Profiles and Pilots
 (save/switch/rename/export), About.
 
@@ -134,7 +134,7 @@ HAWK / inertial wind, AHRS, angle of attack, flaps, engine, battery monitor (LXD
 indicators/repeater, remote stick, 232 bridge (radio, transponder), team code, NOTAM, FLARM
 hardware settings, the Windows **LX Styler** program and its file formats (the on-device LAYOUT editor *is*
 implemented), SoaringSpot, SD/USB/Connect/Wi-Fi, passwords/admin, languages other than English
-(by decision), gear warning. Also missing: Sounds → Alarms (time/event alarm tones), NMEA Output,
+(by decision), gear warning. Also missing: NMEA Output,
 TO NANO (task declaration to a Nano recorder), the satellite sky view and FREQ on the info pages,
 centre-of-gravity limits in Weight and Balance, Save to SD, OLC points scoring, and per-symbol fonts in
 the layout editor. Airspace has no keyless download source I could verify – load a file
