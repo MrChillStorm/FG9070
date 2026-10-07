@@ -477,7 +477,7 @@
           catch (e) { throw new Error('OpenAIP blocked by the browser (CORS). Run tools/openaip-proxy.js and set its URL under Proxy'); }
           if (r.status !== 429) break;
           const ra = parseFloat(r.headers && r.headers.get && r.headers.get('retry-after'));
-          await wait(Math.min(10000, (isFinite(ra) ? ra : 2 * (attempt + 1)) * 1000 * Files.openaipPause));
+          await wait(Math.min(60000, (isFinite(ra) ? ra : [5, 10, 20, 30][attempt]) * 1000) * Files.openaipPause);
         }
         if (r.status === 429) {
           if (!pages) { if (page > 1) Files._oaip = { area, page, out }; throw new Error('OpenAIP rate limit (HTTP 429): wait a minute and press DOWNLOAD again'); }
