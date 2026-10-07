@@ -49,11 +49,15 @@
       c.moveTo(x + w - 20, cy + 3 * dir); c.lineTo(x + w - 11, cy - 3 * dir); c.lineTo(x + w - 2, cy + 3 * dir);
       c.stroke();
     }
+    // long numbers (e.g. -8117) shrink to stay inside the box
+    const fit = (str, size) => { c.font = `bold ${size}px ${F}`; const tw = c.measureText(str).width; return tw > w - 6 ? Math.floor(size * (w - 6) / tw) : size; };
     const a = LX.units.alt(arr);
-    otext(c, Number.isFinite(arr) ? LX.fmt.signed(a, 0) : '---', x + w / 2 - 2, y + h - 8, 22, { align: 'center' });
-    otext(c, (prefix || '') + LX.fmt.num(LX.units.vario(mc), 1), x + w / 2 - 2, y + h / 2 + 8, 22, { align: 'center', color: '#ffe14a' });
+    const arrStr = Number.isFinite(arr) ? LX.fmt.signed(a, 0) : '---';
+    otext(c, arrStr, x + w / 2 - 2, y + h - 8, fit(arrStr, 22), { align: 'center' });
+    const mcStr = (prefix || '') + LX.fmt.num(LX.units.vario(mc), 1);
+    otext(c, mcStr, x + w / 2 - 2, y + h / 2 + 8, fit(mcStr, 22), { align: 'center', color: '#ffe14a' });
     // terrain on the way: height to climb to clear it (yellow, above the Mc value)
-    if (climb > 0) otext(c, LX.fmt.num(LX.units.alt(climb), 0), x + w / 2 - 2, y + h / 2 - 16, 20, { align: 'center', color: '#ffd400' });
+    if (climb > 0) { const clStr = LX.fmt.num(LX.units.alt(climb), 0); otext(c, clStr, x + w / 2 - 2, y + h / 2 - 16, fit(clStr, 20), { align: 'center', color: '#ffd400' }); }
     c.restore();
   }
 
