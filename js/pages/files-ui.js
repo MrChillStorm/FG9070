@@ -88,7 +88,7 @@
       fields: [
         info('Active airspace', () => `${(nav.airspaces || []).length} zones${nav.demo ? ' (demo set)' : ''}`),
         act('Load', 'LOAD  OpenAir .txt / OpenAIP .json', async () => { const f = await pickFile('.txt,.air,.json,.geojson'); if (f) loadFile(scr, ctx, f); }),
-        act('Online', 'DOWNLOAD from OpenAIP (200 km around the glider)', () => online(scr, ctx, 'OpenAIP airspace', () => Files.fetchOpenAIP(nav, 'airspaces', here(ctx), 200000, ctx.settings.get().openaipKey))),
+        act('Online', 'DOWNLOAD from OpenAIP (100 km around the glider)', () => online(scr, ctx, 'OpenAIP airspace', () => Files.fetchOpenAIP(nav, 'airspaces', here(ctx), 100000, ctx.settings.get().openaipKey))),
         act('Key', 'OpenAIP API key: ' + (ctx.settings.get().openaipKey ? 'set' : 'not set'), (s, form) => {
           const k = global.prompt('OpenAIP API key (free account at openaip.net)', ctx.settings.get().openaipKey || '');
           if (k !== null) { ctx.settings.set({ openaipKey: k.trim() }); form.fields[3].text = 'OpenAIP API key: ' + (k.trim() ? 'set' : 'not set'); }
@@ -114,7 +114,7 @@
         info('Airport database', () => `${(nav.airportDb || []).length} airports, ${nav.airports.length} landable places in use`),
         act('Load', 'LOAD  OurAirports .csv / OpenAIP .json', async () => { const f = await pickFile('.csv,.json,.geojson'); if (f) loadFile(scr, ctx, f); }),
         act('Online', 'DOWNLOAD OurAirports (400 km around the glider)', () => online(scr, ctx, 'OurAirports', () => Files.fetchOurAirports(nav, here(ctx), 400000))),
-        act('OpenAIP', 'DOWNLOAD OpenAIP airports (needs the API key)', () => online(scr, ctx, 'OpenAIP airports', () => Files.fetchOpenAIP(nav, 'airports', here(ctx), 200000, ctx.settings.get().openaipKey))),
+        act('OpenAIP', 'DOWNLOAD OpenAIP airports (needs the API key)', () => online(scr, ctx, 'OpenAIP airports', () => Files.fetchOpenAIP(nav, 'airports', here(ctx), 100000, ctx.settings.get().openaipKey))),
         act('Clear', 'CLEAR', async () => { nav.setAirports([]); await Files.clear('airports'); scr.toast('Airports cleared', 1500); }),
       ],
     });
@@ -136,7 +136,7 @@
     const h = here(ctx);
     if (!ctx.flight.have) { scr.toast('No position yet: connect to FlightGear first', 2500); return; }
     await online(scr, ctx, 'Airport database', () => Files.fetchOurAirports(ctx.nav, h, 400000));
-    if (ctx.settings.get().openaipKey) await online(scr, ctx, 'OpenAIP airspace', () => Files.fetchOpenAIP(ctx.nav, 'airspaces', h, 200000, ctx.settings.get().openaipKey));
+    if (ctx.settings.get().openaipKey) await online(scr, ctx, 'OpenAIP airspace', () => Files.fetchOpenAIP(ctx.nav, 'airspaces', h, 100000, ctx.settings.get().openaipKey));
   }
 
   function loadFromURL(scr, ctx) {
