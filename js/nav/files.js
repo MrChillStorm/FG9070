@@ -456,22 +456,37 @@
       if (have && !far) return null;
       return Files.fetchOurAirports(nav, center, 400000);
     },
+    openaipPause: 1, // multiplier for the pauses between OpenAIP requests (tests set 0)
     async fetchOpenAIP(nav, kind, center, radius, key) {
       if (!key) throw new Error('OpenAIP needs a (free) API key – set it in Files and Transfer');
       const out = [];
+      let limited = false, pages = 0;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
       const base = ((LX.settings && LX.settings.get().openaipProxy) || 'https://api.core.openaip.net').replace(/\/$/, '');
       for (let page = 1; page <= 10; page++) {
         const url = `${base}/api/${kind}?page=${page}&limit=200&pos=${center.lat},${center.lon}&dist=${radius || 200000}`;
         let r;
-        try { r = await fetch(url, { headers: { 'x-openaip-api-key': key } }); }
-        catch (e) { throw new Error('OpenAIP blocked by the browser (CORS). Run tools/openaip-proxy.js and set its URL under Proxy'); }
+        // OpenAIP rate-limits (HTTP 429): back off and retry a few times, honouring Retry-After
+        for (let attempt = 0; attempt < 4; attempt++) {
+          try { r = await fetch(url, { headers: { 'x-openaip-api-key': key } }); }
+          catch (e) { throw new Error('OpenAIP blocked by the browser (CORS). Run tools/openaip-proxy.js and set its URL under Proxy'); }
+          if (r.status !== 429) break;
+          const ra = parseFloat(r.headers && r.headers.get && r.headers.get('retry-after'));
+          await wait(Math.min(10000, (isFinite(ra) ? ra : 2 * (attempt + 1)) * 1000 * Files.openaipPause));
+        }
+        if (r.status === 429) {
+          if (!pages) throw new Error('OpenAIP rate limit (HTTP 429): wait a minute and try again');
+          limited = true; break; // keep what we have
+        }
         if (!r.ok) throw new Error('OpenAIP HTTP ' + r.status);
         const j = await r.json();
-        out.push(...(j.items || []));
+        out.push(...(j.items || [])); pages++;
         if (!j.nextPage) break;
+        await wait(400 * Files.openaipPause); // be gentle with the free API
       }
-      if (kind === 'airspaces') { const a = parseOpenAIPAirspaces(out); nav.airspaces = a; await Store.set('airspaces', a); return `${a.length} airspace zones`; }
-      const a = parseOpenAIPAirports(out); nav.setAirports(a); await Store.set('airports', a); return `${a.length} airports`;
+      const note = limited ? ' (stopped early: OpenAIP rate limit - try again in a minute for the rest)' : '';
+      if (kind === 'airspaces') { const a = parseOpenAIPAirspaces(out); nav.airspaces = a; await Store.set('airspaces', a); return `${a.length} airspace zones${note}`; }
+      const a = parseOpenAIPAirports(out); nav.setAirports(a); await Store.set('airports', a); return `${a.length} airports${note}`;
     },
   };
 
