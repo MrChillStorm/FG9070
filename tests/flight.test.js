@@ -64,3 +64,11 @@ const d = LX.geo.dist(46, 14, 46, 15);
 assert.ok(Math.abs(d - 77.9e3) < 1.5e3, 'one degree of lon at 46N ~78 km: ' + d);
 assert.ok(Math.abs(LX.geo.bearing(46, 14, 47, 14)) < 0.01);
 console.log('flight tests passed');
+
+// "Thermal shows the last thermal average" (manual 7.4/5.x): the last finished thermal, not a mean of four
+{
+  require('../js/flight/state.js');
+  const lt = LX.Flight.prototype.lastThermalAvg;
+  assert.strictEqual(lt.call({ thermals: [] }), null);
+  assert.strictEqual(lt.call({ thermals: [{ avg: 1 }, { avg: 3 }, { avg: 2.4 }] }), 2.4);
+}

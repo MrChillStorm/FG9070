@@ -82,7 +82,7 @@
   }, 'MacCready needed to just reach the target at the safety altitude');
   def('reqE', 'reqE', (h) => [h.nav ? LX.fm.ratio(h.nav.reqE) : '---', ''], 'Required glide ratio to the target');
   def('STF', 'STF', (h) => [LX.fm.spd(h.f.stf), U().label('speed')], 'Speed to fly');
-  def('Thermal', 'Thermal', (h) => { const a = h.ctx.flight.lastThermalsAvg(4); return a === null ? none : [LX.fm.vario(a), U().label('vario')]; }, 'Average of the last four thermals');
+  def('Thermal', 'Thermal', (h) => { const a = h.ctx.flight.lastThermalAvg(); return a === null ? none : [LX.fm.vario(a), U().label('vario')]; }, 'Average climb of the last thermal');
   def('Trk', 'Trk', (h) => [LX.fm.hdg(h.f.track), ''], 'Track');
   def('Vario', 'Vario', (h) => [LX.fm.vario(h.f.te), U().label('vario')], 'TE vario');
   def('Avg', 'Avg', (h) => [LX.fm.vario(h.f.avgV), U().label('vario')], 'Average vario (integrator)');
