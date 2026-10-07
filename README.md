@@ -24,19 +24,34 @@ knobs (VOLUME, MODE, ZOOM, PAGE), eight dynamic push buttons.
 3. Point it at FlightGear: **Setup → Hardware → Network (FlightGear)**, or
    `index.html?host=192.168.1.20&port=5400`.
 
-**OpenAIP download:** OpenAIP's API sends no CORS headers, so a browser cannot read it directly (you see
-"Failed to fetch"). Run `node tools/openaip-proxy.js` (a 40-line local relay, no dependencies) and enter
-`http://localhost:5401` under Setup → Files and Transfer → Airspace → Proxy; your API key goes under Key.
-The free API rate-limits (HTTP 429): the download pauses between pages (100 km radius), and if it still hits the
-limit it keeps the pages it has and **continues where it stopped** when you press DOWNLOAD again a minute later.
-Alternatively download the file from openaip.net and use LOAD.
-
 No FlightGear? Add `?demo=1`: a scripted cross-country flight (thermals, speed-to-fly glides, a
 triangle task you fly start-to-finish) exercises every page. `&speed=6` fast-forwards it.
 `node tools/mock-fgfs-server.js` emulates FlightGear's HTTP server (including AI traffic).
 
 Browsers only allow audio after a click or key press – the first interaction enables the vario
 sound. Press `?` in the app for the key map.
+
+## Getting real airspace (optional)
+
+Out of the box you get a small demo airspace. Real airspace comes from [OpenAIP](https://www.openaip.net/)
+(free account). There are two ways; the first needs nothing but a browser.
+
+**Easy: download a file once and load it.**
+1. Download the airspace file for your country from openaip.net (or an OpenAir `.txt` from
+   soaringweb.org / asselect.uk).
+2. In the trainer open **Setup → Files and Transfer → Airspace → LOAD** and pick the file
+   (or drag the file onto the page). It is remembered in your browser.
+
+**Automatic: download the airspace around your glider.** Needs an OpenAIP API key and
+[Node.js](https://nodejs.org/), because OpenAIP does not let web pages talk to it directly, so a tiny helper
+program has to sit in between:
+1. Get a free API key: openaip.net → your account → API clients.
+2. In a terminal, in this folder, run `node tools/openaip-proxy.js` and leave that window open.
+3. In the trainer: **Setup → Files and Transfer → Airspace**: **Proxy** → `http://localhost:5401`,
+   **Key** → paste your key, then **DOWNLOAD**.
+4. OpenAIP limits how fast you may download. If it says *"stopped early … rate limit"*, wait a minute and
+   press DOWNLOAD again; it continues where it stopped. Once it has finished you can close the helper: the
+   airspace stays in your browser until you clear it or download again.
 
 ## Controls
 
@@ -101,7 +116,7 @@ high from the time to closest approach).
 Graphics / `autoData`): **OurAirports** airports with runways and frequencies (airport info page also shows
 sunrise/sunset and a live **METAR**), kept in the browser. Also load SeeYou **CUP** (waypoints + tasks),
 **OpenAir** and OpenAIP-JSON airspace, OurAirports CSV (file picker, drag & drop, or **Load from URL**);
-OpenAIP online download needs a free key. Base map: **OpenTopoMap** raster tiles by default (OSM optional);
+OpenAIP online download needs a free key and the small helper described under *Getting real airspace*. Base map: **OpenTopoMap** raster tiles by default (OSM optional);
 **terrain** from free Terrarium elevation tiles drives the hillshaded map, side view, height above ground and the
 terrain-aware final glide ("climb N m" + red collision marker). Override all servers with
 `?sources=http://host:port` (self-hosted/offline mirror). Free sources only.
