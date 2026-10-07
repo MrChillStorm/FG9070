@@ -459,9 +459,12 @@
     async fetchOpenAIP(nav, kind, center, radius, key) {
       if (!key) throw new Error('OpenAIP needs a (free) API key – set it in Files and Transfer');
       const out = [];
+      const base = ((LX.settings && LX.settings.get().openaipProxy) || 'https://api.core.openaip.net').replace(/\/$/, '');
       for (let page = 1; page <= 10; page++) {
-        const url = `https://api.core.openaip.net/api/${kind}?page=${page}&limit=200&pos=${center.lat},${center.lon}&dist=${radius || 200000}`;
-        const r = await fetch(url, { headers: { 'x-openaip-api-key': key } });
+        const url = `${base}/api/${kind}?page=${page}&limit=200&pos=${center.lat},${center.lon}&dist=${radius || 200000}`;
+        let r;
+        try { r = await fetch(url, { headers: { 'x-openaip-api-key': key } }); }
+        catch (e) { throw new Error('OpenAIP blocked by the browser (CORS). Run tools/openaip-proxy.js and set its URL under Proxy'); }
         if (!r.ok) throw new Error('OpenAIP HTTP ' + r.status);
         const j = await r.json();
         out.push(...(j.items || []));
