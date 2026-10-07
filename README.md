@@ -27,6 +27,8 @@ knobs (VOLUME, MODE, ZOOM, PAGE), eight dynamic push buttons.
 **OpenAIP download:** OpenAIP's API sends no CORS headers, so a browser cannot read it directly (you see
 "Failed to fetch"). Run `node tools/openaip-proxy.js` (a 40-line local relay, no dependencies) and enter
 `http://localhost:5401` under Setup → Files and Transfer → Airspace → Proxy; your API key goes under Key.
+The free API rate-limits (HTTP 429): the download pauses between pages (100 km radius), and if it still hits the
+limit it keeps the pages it has and **continues where it stopped** when you press DOWNLOAD again a minute later.
 Alternatively download the file from openaip.net and use LOAD.
 
 No FlightGear? Add `?demo=1`: a scripted cross-country flight (thermals, speed-to-fly glides, a

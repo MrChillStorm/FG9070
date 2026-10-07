@@ -133,6 +133,16 @@ assert.ok(igc.startsWith('AXXX') && igc.includes('HFDTE061026'), 'headers');
   assert.ok(/0 airspace zones$/.test(await F2.fetchOpenAIP(nav, 'airspaces', { lat: 46, lon: 14 }, 1000, 'K')), 'recovers after one 429');
   global.fetch = mk([{ status: 200, body: { items: [], nextPage: 2 } }, { status: 429 }]);
   assert.ok(/stopped early/.test(await F2.fetchOpenAIP(nav, 'airspaces', { lat: 46, lon: 14 }, 1000, 'K')), 'partial result kept on persistent 429');
+  // resumes at the page that was refused, keeping the earlier pages
+  F2._oaip = null;
+  const urls = [];
+  const seq = [{ status: 200, body: { items: [], nextPage: 2 } }, { status: 429 }, { status: 429 }, { status: 429 }, { status: 429 }, { status: 200, body: { items: [] } }];
+  let n = 0;
+  global.fetch = async (u) => { urls.push(u); const s = seq[n++]; return { status: s.status, ok: s.status === 200, headers: { get: () => null }, json: async () => s.body }; };
+  assert.ok(/stopped early/.test(await F2.fetchOpenAIP(nav, 'airspaces', { lat: 46, lon: 14 }, 1000, 'K')));
+  assert.ok(/0 airspace zones$/.test(await F2.fetchOpenAIP(nav, 'airspaces', { lat: 46, lon: 14 }, 1000, 'K')), 'second run completes');
+  assert.ok(/page=2/.test(urls[urls.length - 1]) && !/page=1&/.test(urls[urls.length - 1]), 'continues at page 2, not page 1');
+  F2._oaip = null;
   global.fetch = mk([{ status: 429 }]);
   await assert.rejects(F2.fetchOpenAIP(nav, 'airspaces', { lat: 46, lon: 14 }, 1000, 'K'), /rate limit/);
   console.log('files tests passed');

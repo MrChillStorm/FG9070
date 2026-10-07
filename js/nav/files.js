@@ -459,12 +459,17 @@
     openaipPause: 1, // multiplier for the pauses between OpenAIP requests (tests set 0)
     async fetchOpenAIP(nav, kind, center, radius, key) {
       if (!key) throw new Error('OpenAIP needs a (free) API key – set it in Files and Transfer');
-      const out = [];
+      // continue where an earlier, rate-limited download of the same area stopped
+      const area = `${kind}:${radius}:${center.lat.toFixed(1)},${center.lon.toFixed(1)}`;
+      const resume = Files._oaip && Files._oaip.area === area ? Files._oaip : null;
+      const out = resume ? resume.out : [];
+      const first = resume ? resume.page : 1;
+      Files._oaip = null;
       let limited = false, pages = 0;
       const wait = (ms) => new Promise((res) => setTimeout(res, ms));
       const base = ((LX.settings && LX.settings.get().openaipProxy) || 'https://api.core.openaip.net').replace(/\/$/, '');
-      for (let page = 1; page <= 10; page++) {
-        const url = `${base}/api/${kind}?page=${page}&limit=200&pos=${center.lat},${center.lon}&dist=${radius || 200000}`;
+      for (let page = first; page <= 10; page++) {
+        const url = `${base}/api/${kind}?page=${page}&limit=200&pos=${center.lat},${center.lon}&dist=${radius || 100000}`;
         let r;
         // OpenAIP rate-limits (HTTP 429): back off and retry a few times, honouring Retry-After
         for (let attempt = 0; attempt < 4; attempt++) {
@@ -472,19 +477,19 @@
           catch (e) { throw new Error('OpenAIP blocked by the browser (CORS). Run tools/openaip-proxy.js and set its URL under Proxy'); }
           if (r.status !== 429) break;
           const ra = parseFloat(r.headers && r.headers.get && r.headers.get('retry-after'));
-          await wait(Math.min(10000, (isFinite(ra) ? ra : 2 * (attempt + 1)) * 1000 * Files.openaipPause));
+          await wait(Math.min(60000, (isFinite(ra) ? ra : [5, 10, 20, 30][attempt]) * 1000) * Files.openaipPause);
         }
         if (r.status === 429) {
-          if (!pages) throw new Error('OpenAIP rate limit (HTTP 429): wait a minute and try again');
-          limited = true; break; // keep what we have
+          if (!pages) { if (page > 1) Files._oaip = { area, page, out }; throw new Error('OpenAIP rate limit (HTTP 429): wait a minute and press DOWNLOAD again'); }
+          Files._oaip = { area, page, out }; limited = true; break; // keep what we have, resume here next time
         }
         if (!r.ok) throw new Error('OpenAIP HTTP ' + r.status);
         const j = await r.json();
         out.push(...(j.items || [])); pages++;
         if (!j.nextPage) break;
-        await wait(400 * Files.openaipPause); // be gentle with the free API
+        await wait(1500 * Files.openaipPause); // be gentle with the free API
       }
-      const note = limited ? ' (stopped early: OpenAIP rate limit - try again in a minute for the rest)' : '';
+      const note = limited ? ' (stopped early: OpenAIP rate limit - wait a minute and press DOWNLOAD again to continue)' : '';
       if (kind === 'airspaces') { const a = parseOpenAIPAirspaces(out); nav.airspaces = a; await Store.set('airspaces', a); return `${a.length} airspace zones${note}`; }
       const a = parseOpenAIPAirports(out); nav.setAirports(a); await Store.set('airports', a); return `${a.length} airports${note}`;
     },
