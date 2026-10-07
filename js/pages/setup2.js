@@ -22,7 +22,7 @@
 
   /* ----------------------------------------------------------------- profiles */
   const PKEY = 'fg9070.profiles.v1';
-  const GLOBAL_KEYS = ['host', 'port', 'transport', 'hz', 'mapZoom', 'page', 'openaipKey', 'demoSpeed'];
+  const GLOBAL_KEYS = ['host', 'port', 'transport', 'hz', 'mapZoom', 'page', 'openaipKey', 'openaipProxy', 'demoSpeed'];
   const load = () => { try { return JSON.parse(global.localStorage.getItem(PKEY)) || null; } catch (e) { return null; } };
   const store = (p) => { try { global.localStorage.setItem(PKEY, JSON.stringify(p)); } catch (e) { /* ignore */ } };
   const snapshot = () => {

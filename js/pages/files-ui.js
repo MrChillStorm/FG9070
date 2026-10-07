@@ -93,6 +93,10 @@
           const k = global.prompt('OpenAIP API key (free account at openaip.net)', ctx.settings.get().openaipKey || '');
           if (k !== null) { ctx.settings.set({ openaipKey: k.trim() }); form.fields[3].text = 'OpenAIP API key: ' + (k.trim() ? 'set' : 'not set'); }
         }),
+        act('Proxy', 'OpenAIP proxy: ' + (ctx.settings.get().openaipProxy || 'none (direct)'), (s, form) => {
+          const u = global.prompt('URL of tools/openaip-proxy.js, e.g. http://localhost:5401\n(empty = connect directly; OpenAIP sends no CORS headers, so a browser needs the proxy)', ctx.settings.get().openaipProxy || '');
+          if (u !== null) { ctx.settings.set({ openaipProxy: u.trim() }); form.fields[4].text = 'OpenAIP proxy: ' + (u.trim() || 'none (direct)'); }
+        }),
         act('Sources', 'Free airspace websites (opens a tab: download, then LOAD)', () => {
           ['https://soaringweb.org/', 'https://asselect.uk/', 'https://www.openaip.net/'].forEach((u) => global.open(u, '_blank', 'noopener'));
         }),

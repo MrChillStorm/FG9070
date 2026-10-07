@@ -130,6 +130,7 @@
     tiles: 'opentopomap', // 'off' | 'opentopomap' | 'osm'  (online raster base map; only drawn when it loads)
     terrain: 'terrarium', // 'off' | 'terrarium'  (online elevation tiles; procedural terrain when off/unavailable)
     autoData: true, // download airports (OurAirports) automatically on the first FlightGear fix when none are loaded
+    openaipProxy: '', // e.g. http://localhost:5401 (tools/openaip-proxy.js): the OpenAIP API sends no CORS headers
     openaipKey: '', // free key from openaip.net for the online airspace/airport download
     showAirspace: true,
     showThermals: true,

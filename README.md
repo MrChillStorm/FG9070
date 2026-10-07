@@ -24,6 +24,11 @@ knobs (VOLUME, MODE, ZOOM, PAGE), eight dynamic push buttons.
 3. Point it at FlightGear: **Setup → Hardware → Network (FlightGear)**, or
    `index.html?host=192.168.1.20&port=5400`.
 
+**OpenAIP download:** OpenAIP's API sends no CORS headers, so a browser cannot read it directly (you see
+"Failed to fetch"). Run `node tools/openaip-proxy.js` (a 40-line local relay, no dependencies) and enter
+`http://localhost:5401` under Setup → Files and Transfer → Airspace → Proxy; your API key goes under Key.
+Alternatively download the file from openaip.net and use LOAD.
+
 No FlightGear? Add `?demo=1`: a scripted cross-country flight (thermals, speed-to-fly glides, a
 triangle task you fly start-to-finish) exercises every page. `&speed=6` fast-forwards it.
 `node tools/mock-fgfs-server.js` emulates FlightGear's HTTP server (including AI traffic).

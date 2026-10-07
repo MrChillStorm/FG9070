@@ -141,7 +141,7 @@
       // --- speed / heading / bank
       let vTarget, rollTarget = 0, turn = 0;
       // steer to the point after the start while the task is not started yet
-      const tgt = nav.started || nav.active > 0 ? nav.target('tsk') : (nav.task[1] || nav.target('tsk')).wp;
+      const tgt = nav.started || nav.active > 0 ? nav.target('tsk') : (nav.task[1] ? nav.task[1].wp : nav.target('tsk'));
       let brg = this.hdg;
       if (tgt) {
         const e = geo.enu(this.o0.lat, this.o0.lon, tgt.lat, tgt.lon);
