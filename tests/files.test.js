@@ -124,4 +124,16 @@ assert.ok(igc.startsWith('AXXX') && igc.includes('HFDTE061026'), 'headers');
   assert.deepStrictEqual(LX.Files.parseChecklists(LX.Files.writeChecklists(lists)), lists);
   assert.strictEqual(LX.Files.parseChecklists('one\ntwo')[0].items.length, 2, 'file without a heading');
 }
-console.log('files tests passed');
+// OpenAIP download: back off on HTTP 429, keep partial results
+(async () => {
+  const F2 = LX.Files; F2.openaipPause = 0;
+  const mk = (seq) => { let i = 0; return async () => { const s = seq[Math.min(i++, seq.length - 1)]; return { status: s.status, ok: s.status === 200, headers: { get: () => null }, json: async () => s.body }; }; };
+  const nav = { airspaces: [], setAirports() {} };
+  global.fetch = mk([{ status: 200, body: { items: [], nextPage: 2 } }, { status: 429 }, { status: 200, body: { items: [] } }]);
+  assert.ok(/0 airspace zones$/.test(await F2.fetchOpenAIP(nav, 'airspaces', { lat: 46, lon: 14 }, 1000, 'K')), 'recovers after one 429');
+  global.fetch = mk([{ status: 200, body: { items: [], nextPage: 2 } }, { status: 429 }]);
+  assert.ok(/stopped early/.test(await F2.fetchOpenAIP(nav, 'airspaces', { lat: 46, lon: 14 }, 1000, 'K')), 'partial result kept on persistent 429');
+  global.fetch = mk([{ status: 429 }]);
+  await assert.rejects(F2.fetchOpenAIP(nav, 'airspaces', { lat: 46, lon: 14 }, 1000, 'K'), /rate limit/);
+  console.log('files tests passed');
+})();

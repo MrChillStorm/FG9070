@@ -19,6 +19,7 @@ function createServer(upstream) {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'x-openaip-api-key, content-type',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Expose-Headers': 'Retry-After',
   };
   return http.createServer(async (req, res) => {
     if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
@@ -27,7 +28,9 @@ function createServer(upstream) {
       const headers = {};
       if (req.headers['x-openaip-api-key']) headers['x-openaip-api-key'] = req.headers['x-openaip-api-key'];
       const r = await fetch(target + req.url, { headers });
-      res.writeHead(r.status, { ...cors, 'Content-Type': r.headers.get('content-type') || 'application/json' });
+      const out = { ...cors, 'Content-Type': r.headers.get('content-type') || 'application/json' };
+      if (r.headers.get('retry-after')) out['Retry-After'] = r.headers.get('retry-after');
+      res.writeHead(r.status, out);
       res.end(Buffer.from(await r.arrayBuffer()));
     } catch (e) {
       res.writeHead(502, cors); res.end('proxy error: ' + e.message);
