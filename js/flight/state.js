@@ -233,6 +233,11 @@
       this.bins.fill(null);
     }
 
+    /** Average climb of the last finished thermal (m/s), null if none (manual: "Thermal shows the last thermal average"). */
+    lastThermalAvg() {
+      return this.thermals.length ? this.thermals[this.thermals.length - 1].avg : null;
+    }
+
     /** Mean climb of the last `n` thermals (m/s), null if none. */
     lastThermalsAvg(n) {
       const list = this.thermals.slice(-n);

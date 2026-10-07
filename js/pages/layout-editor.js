@@ -117,7 +117,7 @@
         case 'fg': sym.finalGlide(c, r.x, r.y, nav, s.mc, view.modeId === 'tsk' ? ctx.runner.prefix() : '', core && core.tclear ? core.tclear.climb : 0); break;
         case 'wind': { const rad = Math.min(r.w, r.h) / 2; sym.windThermal(c, r.x + r.w / 2, r.y + r.h / 2, rad, f, ctx.flight.bins, s.mc, up === 'track' ? f.track : 0); break; }
         case 'scale': sym.zoomScale(c, r.x + r.w, r.y + r.h, scaleKm, mpp); break;
-        case 'vario': { const rad = Math.min(r.w, r.h) / 2; sym.varioIndicator(c, r.x + r.w / 2, r.y + r.h / 2, rad, f, { range: s.varioRange, value: f.te, mc: s.mc, avg: f.avgV, thermalAvg: ctx.flight.lastThermalsAvg(4) }); break; }
+        case 'vario': { const rad = Math.min(r.w, r.h) / 2; sym.varioIndicator(c, r.x + r.w / 2, r.y + r.h / 2, rad, f, { range: s.varioRange, value: f.te, mc: s.mc, avg: f.avgV, thermalAvg: ctx.flight.lastThermalAvg() }); break; }
         case 'tape': sym.varioTape(c, r.x, r.y, r.w, r.h, f.te, s.varioRange); break;
         case 'side': {
           const geo = LX.geo, brg = nav ? nav.bearing : f.track;

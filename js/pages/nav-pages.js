@@ -329,7 +329,7 @@
       // needle shows TE in climb mode, speed-to-fly relative in cruise (simplified: netto)
       const value = f.mode === 'vario' ? f.te : f.te;
       sym.varioIndicator(c, cx, cy, r, f, {
-        range: s.varioRange, value, mc: s.mc, avg: f.avgV, thermalAvg: this.ctx.flight.lastThermalsAvg(4),
+        range: s.varioRange, value, mc: s.mc, avg: f.avgV, thermalAvg: this.ctx.flight.lastThermalAvg(),
       });
       sym.varioTape(c, cx + r + 14, cy - r, 46, r * 2, value, s.varioRange);
       // speed-to-fly block
