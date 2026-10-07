@@ -28,6 +28,11 @@ function createServer(upstream) {
       const headers = {};
       if (req.headers['x-openaip-api-key']) headers['x-openaip-api-key'] = req.headers['x-openaip-api-key'];
       const r = await fetch(target + req.url, { headers });
+      if (r.status === 429) {
+        // show whatever the API tells us about its limit, so the pauses can be tuned to it
+        const hdr = [...r.headers.entries()].filter(([k]) => /retry|limit|remaining|reset/i.test(k));
+        console.log(new Date().toISOString(), '429 from OpenAIP', req.url.split('?')[0], JSON.stringify(Object.fromEntries(hdr)));
+      }
       const out = { ...cors, 'Content-Type': r.headers.get('content-type') || 'application/json' };
       if (r.headers.get('retry-after')) out['Retry-After'] = r.headers.get('retry-after');
       res.writeHead(r.status, out);
