@@ -4,7 +4,7 @@
  *
  * Airspace warning buttons (manual 7.1.10.1): QUIT hides the message, the
  * lower-middle button shows the dismiss time in minutes (PAGE knob changes it),
- * DISMISS silences this zone for that long. An alarmed zone stays drawn with a
+ * DISMISS and that button both silence this zone for that long. An alarmed zone stays drawn with a
  * thick outline and its distance on the map.
  *
  * Not simulated: gear warning (no retractable gear on the gliders here).
@@ -128,14 +128,15 @@
         scr.open(new WarningView(scr, ctx, {
           level: active[0].level, title: `AIRSPACE  ${z.name}`, dismissable: true, state: stateOf,
           quit: () => W.quit(z, performance.now(), active[0].level),
-          buttons: (v) => ({
-            6: { label: `${v.minutes} min`, run: () => {} },
-            7: { label: 'DISMISS', run: () => {
+          buttons: (v) => {
+            // the minutes button and DISMISS both silence this zone for v.minutes (PAGE knob changes the minutes)
+            const dismiss = () => {
               const go = () => { W.dismiss(z, v.minutes, performance.now(), active[0].level); scr.close(); };
               if (settings.warnConfirm) scr.open(new Popup(scr, 'Dismiss', `Dismiss ${z.name} for ${v.minutes} min?`, { 4: { label: 'NO', run: (s) => s.close() }, 7: { label: 'YES', run: (s) => { s.close(); go(); } } }));
               else go();
-            } },
-          }),
+            };
+            return { 6: { label: `${v.minutes} min`, run: dismiss }, 7: { label: 'DISMISS', run: dismiss } };
+          },
         }));
       }
 
