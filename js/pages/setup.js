@@ -459,7 +459,7 @@
         check('', 'wxSat', 'Show satellite layer'),
         Object.assign({ type: 'select', label: 'Layer', options: satOpts, wide: true, show: (v) => (v ? LX.Weather.describeSat(v).label : 'Automatic (' + (wx.satLayerName(S().get()) ? LX.Weather.describeSat(wx.satLayerName(S().get())).label : 'loading') + ')') }, bind('wxSatLayer')),
         info('', () => { const n = wx.satLayerName(S().get()); return n ? LX.Weather.describeSat(n).desc : 'Loading the layer list...'; }, { wide: true }),
-        Object.assign({ type: 'check', label: '', text: 'Show all layers (advanced, many are technical)', get: () => S().get().wxSatAll, set: (v) => { S().set({ wxSatAll: v }); fillSat(); } }),
+        Object.assign({ type: 'check', label: '', text: 'All layers (advanced)', get: () => S().get().wxSatAll, set: (v) => { S().set({ wxSatAll: v }); fillSat(); } }),
         spin('Opacity', 'wxSatOpacity', 10, 100, 10, (v) => v + '%', { coarse: 2 }),
         status('sat'),
         section('Forecast (Open-Meteo, coarse grid)'),
@@ -691,5 +691,5 @@
     });
   }
 
-  LX.setup = { layoutDialog, setupRoot, mcDialog, windDialog, mapDialog, airspaceList, flarmList, targetList, volumes };
+  LX.setup = { weather: weatherSetup, layoutDialog, setupRoot, mcDialog, windDialog, mapDialog, airspaceList, flarmList, targetList, volumes };
 })(window);

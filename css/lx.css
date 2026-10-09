@@ -122,10 +122,11 @@ html, body { margin: 0; height: 100%; background: #0b0b0c; overflow: hidden; fon
 .menu.grid .row.sel { background: #2f3a52; box-shadow: inset 0 0 0 2px #7aa6ff; }
 
 /* form dialogs (spin/select/check fields) */
-.form { position: absolute; left: 0; right: 0; top: 24px; bottom: 26px; padding: 6px 8px; overflow: hidden; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px 6px; align-content: start; }
+.form { position: absolute; left: 0; right: 0; top: 24px; bottom: 26px; padding: 6px 8px; overflow: hidden; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px 6px; align-content: start; grid-auto-rows: min-content; }
 .portrait .form { grid-template-columns: 1fr 1fr; }
 .field { background: #14161a; border: 1px solid #2b2e35; border-radius: 3px; padding: 2px 6px 4px; min-height: 46px; }
 .field .lab { font-size: 11px; color: #8fb6ff; }
+.field .lab:empty { display: none; }
 .field .val { font-size: 19px; color: #fff; line-height: 24px; }
 .field.sel { border-color: #aab0ba; background: #1d2128; }
 .field.edit { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }

@@ -108,7 +108,9 @@
       return String(v);
     }
     render() {
+      const keep = this.formEl.scrollTop; // clearing the form would reset the scroll position
       this.formEl.innerHTML = '';
+      let selEl = null;
       this.fields.forEach((f, i) => {
         const d = document.createElement('div');
         if (f.type === 'section') { d.className = 'field sect'; d.innerHTML = '<div class="lab"></div>'; d.firstChild.textContent = f.label; this.formEl.appendChild(d); return; }
@@ -119,7 +121,18 @@
         d.addEventListener('pointerdown', () => { this.sel = i; this.editing = false; this.render(); this.scr._refreshSoftkeys(); });
         d.addEventListener('dblclick', () => this.toggleEdit());
         this.formEl.appendChild(d);
+        if (i === this.sel) selEl = d;
       });
+      // keep the selected field visible (forms can be longer than the screen)
+      const L = this.formEl;
+      L.scrollTop = keep;
+      if (selEl) {
+        const top = selEl.offsetTop, bottom = top + selEl.offsetHeight;
+        const first = this.fields.findIndex((q) => q.type !== 'section') === this.sel;
+        if (first) L.scrollTop = 0;
+        else if (top < L.scrollTop + 4) L.scrollTop = Math.max(0, top - 4);
+        else if (bottom > L.scrollTop + L.clientHeight - 4) L.scrollTop = bottom - L.clientHeight + 4;
+      }
     }
     show() { this.render(); }
     resize() { this.render(); }
