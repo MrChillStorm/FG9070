@@ -140,6 +140,12 @@
     showCollision: true,
     showRangeCircles: true, rangeColor: '#000000', rangeWidth: 1,
     showGlideArea: false, areaColor: '#ff9a1f', areaBorder: '#ff9a1f', areaFill: 'outside',
+    // Setup > Graphics > Thermal Mode (7.1.7.6), Optimization (7.1.7.7), Task (7.1.7.8), FLARM (7.1.7.9), Misc (7.1.7.10)
+    thermalMode: true, thermalSwitch: 'circling', thermalAngle: 270, thermalZoom: 1, thermalPathLength: 5, thermalPathStyle: 'autospan', thermalPathWidth: 3,
+    optColor: '#ffd400', optWidth: 3, showOptTriangle: false, faiColor: '#ffd400',
+    taskColor: '#ff2fd5', zoneColor: '#ff2fd5', zoneAlpha: 0, showSelectedZoneOnly: false,
+    showFlarm: true, flarmAbove: '#ff7a45', flarmNear: '#ffffff', flarmBelow: '#4fd37a', flarmLostAfter: 120, flarmSymbolSize: 10, flarmLabels: 'all',
+    thermalsCount: 4, buttonTimeout: 10, msgFont: 15,
     showAirspace: true,
     showThermals: true,
     page: 0,

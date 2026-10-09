@@ -140,10 +140,10 @@
       if (sk.persist) { v.button(i, long); this._refreshSoftkeys(); return; }
       // dynamic soft keys
       const now = performance.now();
-      if (now > this.skUntil) { this.skUntil = now + SOFTKEY_TIMEOUT; this._refreshSoftkeys(); return; }
+      if (now > this.skUntil) { this.skUntil = now + this._skTimeout(); this._refreshSoftkeys(); return; }
       if (!sk.labels[i]) return;
       const r = v.button(i, long);
-      if (r === 'keep') this.skUntil = now + SOFTKEY_TIMEOUT;
+      if (r === 'keep') this.skUntil = now + this._skTimeout();
       else this.skUntil = 0;
       this._refreshSoftkeys();
     }
@@ -195,6 +195,9 @@
     }
 
     /* ----------------------------------------------------------------- toast */
+    /** Soft-key label time-out (Setup > Graphics > Misc.: button timeout). */
+    _skTimeout() { const s = LX.settings && LX.settings.get().buttonTimeout; return s ? s * 1000 : SOFTKEY_TIMEOUT; }
+
     toast(msg, ms) {
       if (!this.toastEl) {
         this.toastEl = document.createElement('div');
@@ -202,6 +205,7 @@
         this.lcd.appendChild(this.toastEl);
       }
       this.toastEl.textContent = msg;
+      this.toastEl.style.fontSize = ((LX.settings && LX.settings.get().msgFont) || 15) + 'px';
       this.toastEl.style.display = 'block';
       clearTimeout(this._tt);
       this._tt = setTimeout(() => (this.toastEl.style.display = 'none'), ms || 1500);

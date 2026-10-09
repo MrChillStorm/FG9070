@@ -93,7 +93,7 @@
         (this.list || []).forEach((m) => {
           if (seen.has(m.id)) return;
           const since = m.lostAt || now;
-          if (now - since < 120) list.push(Object.assign({}, m, { lostAt: since, lostFor: now - since + 0.001 }));
+          if (now - since < ((LX.settings && LX.settings.get().flarmLostAfter) || 120)) list.push(Object.assign({}, m, { lostAt: since, lostFor: now - since + 0.001 }));
         });
         this.list = list;
         list.forEach((m) => { // flown paths (one point per poll, about the last 3 minutes)

@@ -226,6 +226,18 @@
       return this._opt.pts;
     }
 
+    /** Largest triangle of the recorded track (not necessarily FAI), recomputed every 10 s (manual 7.1.7.7: show optimized triangle). */
+    optTriangle() {
+      const h = this.ctx.history, now = performance.now();
+      if (h.length < 30) return null;
+      if (!this._tri || now - this._tri.t > 10000) {
+        const fixes = h.map((p, i) => [i * 2, p[0], p[1], 0]);
+        const r = LX.Optimizer.triangle(fixes, 70);
+        this._tri = { t: now, pts: r ? r.pts.map((p) => [p.lat, p.lon]) : null };
+      }
+      return this._tri.pts;
+    }
+
     /** Glider range area (manual 7.1.7.5): outline of where final glide at the safety Mc reaches the safety altitude, once a second. */
     glideRange(f, s) {
       const now = performance.now();
@@ -247,10 +259,20 @@
     mapCore(f, rect) {
       const c = this.c, W = this.W;
       const s = this.ctx.settings.get();
-      const circling = f.circling && !this.thermalOverride;
-      if (!f.circling) this.thermalOverride = false;
+      // thermal mode (manual 7.1.7.6 / 7.8): switch by circling (after the switch angle) or by SC -> Vario
+      let thermal = false;
+      if (s.thermalMode !== false) {
+        if (s.thermalSwitch === 'scvar') thermal = f.mode === 'vario';
+        else {
+          if (!f.circling) this._thermalLatch = false;
+          else if ((f.turnAngle || 0) >= (s.thermalAngle || 270)) this._thermalLatch = true;
+          thermal = !!this._thermalLatch;
+        }
+      }
+      if (!thermal) this.thermalOverride = false;
+      const circling = thermal && !this.thermalOverride;
       let zi = clamp(s.mapZoom, 0, ZOOMS.length - 1);
-      if (circling) zi = 1; // thermal zoom (manual 7.1.7.6)
+      if (circling) zi = clamp(s.thermalZoom === undefined ? 1 : s.thermalZoom, 0, ZOOMS.length - 1);
       const scaleKm = ZOOMS[zi];
       const mpp = (scaleKm * 1000) / 100;
       const nav = this.ctx.navFor(this.modeId, f);
@@ -271,15 +293,18 @@
       const nowT = performance.now();
       if (!this._tc || nowT - this._tc.t > 1000) this._tc = { t: nowT, v: nav ? this.ctx.dem.clearance(f, nav, s.safetyAlt, geo) : null };
       const tclear = this._tc.v;
+      sym.setFlarmColors({ above: s.flarmAbove, near: s.flarmNear, below: s.flarmBelow });
       const fWith = Object.assign({}, f, { nav });
       const fai = s.showFai && this.ctx.flight.have && this.ctx.history.length > 20
-        ? { S: this.ctx.flightStart || { lat: this.ctx.history[0][0], lon: this.ctx.history[0][1] }, P: { lat: f.lat, lon: f.lon }, side: this.ctx.faiSide === undefined ? 1 : this.ctx.faiSide, min: s.optFaiMin || 0.28, alpha: s.faiAlpha / 100, color: '#ffd400', km: s.faiKmLines } : null;
+        ? { S: this.ctx.flightStart || { lat: this.ctx.history[0][0], lon: this.ctx.history[0][1] }, P: { lat: f.lat, lon: f.lon }, side: this.ctx.faiSide === undefined ? 1 : this.ctx.faiSide, min: s.optFaiMin || 0.28, alpha: s.faiAlpha / 100, color: s.faiColor || '#ffd400', km: s.faiKmLines } : null;
       this.mapR.draw(c, vp, {
         opt: s.showOpt ? this.optPath() : null,
         fai, nav: this.ctx.nav, f: fWith, history: this.ctx.history,
         thermals: s.showThermals !== false ? this.ctx.flight.thermals : null,
         airspaces: s.showAirspace !== false ? this.ctx.nav.airspaces : null,
-        mc: s.mc, safety: s.safetyAlt, collision: tclear, style: s, range: s.showGlideArea ? this.glideRange(f, s) : null,
+        mc: s.mc, safety: s.safetyAlt, collision: tclear, range: s.showGlideArea ? this.glideRange(f, s) : null,
+        style: circling ? Object.assign({}, s, { pathLength: s.thermalPathLength, pathStyle: s.thermalPathStyle, pathWidth: s.thermalPathWidth }) : s,
+        optTri: s.showOpt && s.showOptTriangle ? this.optTriangle() : null,
         traffic: this.ctx.traffic.relative(f, 0), pcas: this.ctx.traffic.pcas(), paths: this.ctx.traffic.paths(),
       });
       return { nav, up, tclear, scaleKm, mpp };

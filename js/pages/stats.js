@@ -72,7 +72,8 @@
       const chartH = showTh ? Math.round(H * 0.4) : 0;
       const x0 = 56, y0 = 36, cw = W - x0 - 100, ch = chartH - 28;
       if (showTh) {
-        const ths = fl.thermals.slice(-4);
+        const nTh = this.ctx.settings.get().thermalsCount || 4;
+        const ths = fl.thermals.slice(-nTh);
         const amin = Math.min(...ths.map((t) => t.alt0), fl.f.alt) - 100;
         const amax = Math.max(...ths.map((t) => t.alt1), fl.f.alt) + 100;
         c.strokeStyle = '#3a3d44'; c.lineWidth = 1; c.strokeRect(x0, y0, cw, ch);
@@ -84,7 +85,7 @@
         }
         if (!ths.length) sym.otext(c, 'No thermals yet', x0 + cw / 2, y0 + ch / 2, 16, { align: 'center', weight: 'normal' });
         ths.forEach((t, i) => {
-          const colw = cw / 4, x = x0 + colw * i + colw * 0.2, w = colw * 0.6;
+          const colw = cw / nTh, x = x0 + colw * i + colw * 0.2, w = colw * 0.6;
           const yTop = y0 + ch - ((t.alt1 - amin) / (amax - amin)) * ch, yBot = y0 + ch - ((t.alt0 - amin) / (amax - amin)) * ch;
           c.fillStyle = t.avg >= mc + 0.5 ? '#ff3b30' : t.avg <= mc - 0.5 ? '#2f7bff' : '#ff9a1f';
           c.fillRect(x, yTop, w, yBot - yTop);

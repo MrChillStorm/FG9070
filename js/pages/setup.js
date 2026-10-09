@@ -312,11 +312,96 @@
     });
   }
 
+  /* --------------------------------------- Setup > Graphics > Thermal Mode (7.1.7.6 / 7.8) */
+  function thermalModeSetup(scr) {
+    const ZS = LX.Map.ZOOMS;
+    return new FormView(scr, {
+      title: 'Thermal Mode',
+      fields: [
+        check('', 'thermalMode', 'Enabled'),
+        Object.assign({ type: 'select', label: 'Switch by', options: ['circling', 'scvar'], show: (v) => (v === 'circling' ? 'Circling detection' : 'Switching SC / Vario') }, bind('thermalSwitch')),
+        spin('Switch angle', 'thermalAngle', 90, 720, 30, (v) => v + '°', { coarse: 3 }),
+        Object.assign({ type: 'select', label: 'Page zoom', options: ZS.map((_, i) => i), show: (v) => ZS[v] + ' km' }, bind('thermalZoom')),
+        spin('Path length', 'thermalPathLength', 1, 30, 1, (v) => v + ' min', { coarse: 5 }),
+        Object.assign({ type: 'select', label: 'Path colouring', options: ['autospan', 'avgvario', 'mc', 'fixed'], show: (v) => ({ autospan: 'Auto span', avgvario: 'Average vario', mc: 'Mc (vs. MacCready)', fixed: 'Fixed colour' }[v]) }, bind('thermalPathStyle')),
+        widthSel('Path width', 'thermalPathWidth'),
+        section('Leave thermal mode by turning the PAGE or ZOOM knob. No Hawk netto colouring (no HAWK).'),
+      ],
+    });
+  }
+
+  /* --------------------------------------- Setup > Graphics > Optimization (7.1.7.7) */
+  function optimizationLook(scr) {
+    return new FormView(scr, {
+      title: 'Optimization (graphics)',
+      fields: [
+        check('', 'showOpt', 'Show optimization'),
+        colorSel('Optimization colour', 'optColor'),
+        widthSel('Optimization width', 'optWidth'),
+        check('', 'showOptTriangle', 'Show optimized triangle (may not be an FAI triangle)'),
+        check('', 'showFai', 'Show FAI triangle area (assistant)'),
+        colorSel('FAI area colour', 'faiColor'),
+        Object.assign({ type: 'spin', label: 'FAI area opacity', min: 0, max: 60, step: 2, coarse: 10, fmt: (v) => v + '%' }, bind('faiAlpha')),
+        check('', 'faiKmLines', 'Show km lines'),
+      ],
+    });
+  }
+
+  /* --------------------------------------------------- Setup > Graphics > Task (7.1.7.8) */
+  function taskLook(scr) {
+    return new FormView(scr, {
+      title: 'Task (graphics)',
+      fields: [
+        colorSel('Task colour', 'taskColor'),
+        colorSel('Obs. zone colour', 'zoneColor'),
+        spin('Obs. zone opacity', 'zoneAlpha', 0, 60, 5, (v) => v + '%', { coarse: 4 }),
+        check('', 'showSelectedZoneOnly', 'Show selected zone only'),
+        section('Not simulated: flown task display, optimal-track arrow, AAT isolines / fill / text colour.'),
+      ],
+    });
+  }
+
+  /* ------------------------------------------------- Setup > Graphics > FLARM (7.1.7.9) */
+  function flarmLook(scr) {
+    return new FormView(scr, {
+      title: 'FLARM (graphics)',
+      fields: [
+        check('', 'showFlarm', 'Show FLARM objects'),
+        colorSel('Above colour', 'flarmAbove'),
+        colorSel('Near colour', 'flarmNear'),
+        colorSel('Below colour', 'flarmBelow'),
+        spin('Lost device after', 'flarmLostAfter', 10, 600, 10, (v) => v + ' s', { coarse: 6 }),
+        Object.assign({ type: 'select', label: 'Show labels', options: ['all', 'near', 'none'], show: (v) => ({ all: 'All objects', near: 'Near objects only', none: 'None' }[v]) }, bind('flarmLabels')),
+        spin('Symbol size', 'flarmSymbolSize', 6, 20, 1, (v) => v + ' px'),
+        Object.assign({ type: 'select', label: 'Show paths', options: ['off', 'all'], show: (v) => (v === 'all' ? 'All objects' : 'None') }, bind('trafficPaths')),
+        check('', 'showPcas', 'Show PCAS'),
+      ],
+    });
+  }
+
+  /* --------------------------------------------------- Setup > Graphics > Misc. (7.1.7.10) */
+  function miscLook(scr) {
+    return new FormView(scr, {
+      title: 'Misc.',
+      fields: [
+        spin('Statistics thermals count', 'thermalsCount', 2, 8, 1, (v) => String(v)),
+        spin('Button timeout', 'buttonTimeout', 3, 30, 1, (v) => v + ' s'),
+        spin('Message font size', 'msgFont', 11, 24, 1, (v) => v + ' px'),
+        section('No button proximity / button font size: no touch hardware.'),
+      ],
+    });
+  }
+
   /* ----------------------------------------------------------- Setup > Graphics */
   function graphics(scr, ctx) {
     return new MenuView(scr, [
       { label: 'Map and Terrain', color: '#7ee07e', run: (s) => s.open(mapAndTerrain(s)) },
       { label: 'Glider and Track', color: '#ffb000', run: (s) => s.open(gliderTrack(s)) },
+      { label: 'Thermal Mode', color: '#ff9a1f', run: (s) => s.open(thermalModeSetup(s)) },
+      { label: 'Optimization', color: '#ffd400', run: (s) => s.open(optimizationLook(s)) },
+      { label: 'Task', color: '#ff2fd5', run: (s) => s.open(taskLook(s)) },
+      { label: 'FLARM', color: '#5fd0ff', run: (s) => s.open(flarmLook(s)) },
+      { label: 'Misc.', color: '#8a8f99', run: (s) => s.open(miscLook(s)) },
     ], { title: 'Graphics' });
   }
 

@@ -21,4 +21,9 @@ assert.strictEqual(a(h[0]), 'hsl(0,95%,50%)'); assert.strictEqual(a(h[2]), 'hsl(
 // ground speed: slowest red, fastest blue
 const g = col('speed', h, 1);
 assert.strictEqual(g(h[0]), 'hsl(0,95%,50%)'); assert.strictEqual(g(h[2]), 'hsl(240,95%,50%)');
+// thermal mode colouring (7.1.7.6): auto span = red strongest lift ... blue weakest; average vario = above/below the mean
+const as = col('autospan', h, 1);
+assert.strictEqual(as(h[0]), 'hsl(0,95%,50%)'); assert.strictEqual(as(h[2]), 'hsl(240,95%,50%)');
+const av = col('avgvario', [[0, 0, 0, 3, 0], [0, 0, 0, 1, 0], [0, 0, 0, -1, 0]], 1); // mean 1
+assert.strictEqual(av([0, 0, 0, 3, 0]), '#ff3b30'); assert.strictEqual(av([0, 0, 0, 1, 0]), '#ff9a1f'); assert.strictEqual(av([0, 0, 0, -1, 0]), '#2f7bff');
 console.log('map tests passed');

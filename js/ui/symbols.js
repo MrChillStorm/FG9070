@@ -251,7 +251,9 @@
    * as arrows (colour = threat, relative-altitude arrow).
    */
   /** Manual 7.1.7.9: colour by height relative to us – above (>100 m), below (>100 m) or near. */
-  const flarmColor = (t) => (t.dh > 100 ? '#ff7a45' : t.dh < -100 ? '#4fd37a' : '#ffffff');
+  const FLARM_COL = { above: '#ff7a45', near: '#ffffff', below: '#4fd37a' };
+  const setFlarmColors = (c) => { Object.assign(FLARM_COL, c); }; // Setup > Graphics > FLARM
+  const flarmColor = (t) => (t.dh > 100 ? FLARM_COL.above : t.dh < -100 ? FLARM_COL.below : FLARM_COL.near);
   /** Lost signal: the symbol blinks until it times out (default 120 s). */
   const flarmVisible = (t) => !t.lostFor || Math.floor(performance.now() / 400) % 2 === 0;
   function flarmSymbol(c, t, size, rot) {
@@ -315,5 +317,5 @@
     c.restore();
   }
 
-  LX.symbols = { otext, finalGlide, windThermal, zoomScale, northArrow, varioIndicator, varioTape, sideView, flarmRadar, flarmSymbol, flarmColor, gpsBars };
+  LX.symbols = { otext, finalGlide, windThermal, zoomScale, northArrow, varioIndicator, varioTape, sideView, flarmRadar, flarmSymbol, flarmColor, setFlarmColors, gpsBars };
 })(window);

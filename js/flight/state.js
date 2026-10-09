@@ -40,7 +40,7 @@
     }
 
     reset() {
-      this.te.reset(); this._lps = {};
+      this.te.reset(); this._lps = {}; this.turnAcc = 0; this._ctT = 0;
       this.have = false;
       this.seq = 0;
       this.lastPos = null; // { t, lat, lon }
@@ -194,6 +194,9 @@
     _circling(t, s) {
       const f = this.f;
       const fast = Math.abs(this.turnRate) > 6; // deg/s
+      const dtc = this._ctT ? Math.min(1, (t - this._ctT) / 1000) : 0; this._ctT = t;
+      this.turnAcc = fast ? (this.turnAcc || 0) + Math.abs(this.turnRate) * dtc : 0; // degrees turned since the turn began
+      f.turnAngle = this.turnAcc;
       if (fast) {
         this.straightSince = null;
         if (this.circlingSince === null) this.circlingSince = t;

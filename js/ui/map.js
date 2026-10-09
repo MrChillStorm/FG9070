@@ -134,18 +134,19 @@
       if (data.airspaces) this.drawAirspace(c, data.airspaces, toScreen, vp);
       if (data.nav) {
         this.drawWaypoints(c, data.nav, toScreen, vp);
-        this.drawTask(c, data.nav, toScreen, vp);
+        this.drawTask(c, data.nav, toScreen, vp, st);
       }
       if (data.fai) this.drawFai(c, data.fai, toScreen, vp);
       if (data.history) this.drawTrack(c, data.history, toScreen, st, data.mc);
-      if (data.opt && data.opt.length > 1) {
-        c.strokeStyle = '#ffd400'; c.lineWidth = 3; c.setLineDash([8, 5]); c.beginPath();
-        data.opt.forEach((p, i) => { const [x, y] = toScreen(p[0], p[1]); i ? c.lineTo(x, y) : c.moveTo(x, y); }); c.stroke(); c.setLineDash([]);
-      }
+      [data.opt, data.optTri].forEach((line) => {
+        if (!line || line.length < 2) return;
+        c.strokeStyle = st.optColor || '#ffd400'; c.lineWidth = st.optWidth || 3; c.setLineDash([8, 5]); c.beginPath();
+        line.forEach((p, i) => { const [x, y] = toScreen(p[0], p[1]); i ? c.lineTo(x, y) : c.moveTo(x, y); }); c.stroke(); c.setLineDash([]);
+      });
       if (data.thermals) this.drawThermals(c, data.thermals, toScreen, vp, data.mc);
       this.drawGoal(c, vp, data, toScreen, st);
       if (data.paths) this.drawPaths(c, data.paths, toScreen);
-      if (data.traffic) this.drawTraffic(c, data.traffic, toScreen, vp);
+      if (data.traffic && st.showFlarm !== false) this.drawTraffic(c, data.traffic, toScreen, vp, st);
       if (data.pcas && data.pcas.length) this.drawPcas(c, data.pcas, vp);
       this.drawGlider(c, vp);
       c.restore();
@@ -301,18 +302,23 @@
       }
     }
 
-    drawTask(c, nav, toScreen, vp) {
+    drawTask(c, nav, toScreen, vp, st) {
+      st = st || {};
       if (!nav.task.length) return;
       c.lineWidth = 3;
-      c.strokeStyle = '#ff2fd5';
+      c.strokeStyle = st.taskColor || '#ff2fd5';
       c.beginPath();
       nav.task.forEach((p, i) => { const [x, y] = toScreen(p.wp.lat, p.wp.lon); i ? c.lineTo(x, y) : c.moveTo(x, y); });
       c.stroke();
       c.lineWidth = 2;
       nav.task.forEach((p, i) => {
+        if (st.showSelectedZoneOnly && i !== nav.active) return;
         const [x, y] = toScreen(p.wp.lat, p.wp.lon);
-        c.strokeStyle = i === nav.active ? '#ffffff' : '#ff2fd5';
-        c.beginPath(); c.arc(x, y, Math.max(4, p.radius / vp.mpp), 0, Math.PI * 2); c.stroke();
+        const zc = st.zoneColor || '#ff2fd5';
+        c.beginPath(); c.arc(x, y, Math.max(4, p.radius / vp.mpp), 0, Math.PI * 2);
+        if (st.zoneAlpha > 0) { c.save(); c.globalAlpha = st.zoneAlpha / 100; c.fillStyle = zc; c.fill(); c.restore(); }
+        c.strokeStyle = i === nav.active ? '#ffffff' : zc;
+        c.stroke();
       });
     }
 
@@ -403,6 +409,13 @@
         return (p) => (p[3] >= mc + 0.5 ? '#ff3b30' : p[3] < 0 ? '#8a8f99' : p[3] < mc - 0.5 ? '#2f7bff' : '#ff9a1f');
       }
       if (style === 'vario') return (p) => (p[3] >= 0 ? '#ff3b30' : '#2f7bff');
+      if (style === 'autospan' || style === 'avgvario') { // thermal mode (7.1.7.6)
+        let lo = Infinity, hi = -Infinity, sum = 0;
+        h.forEach((p) => { if (p[3] < lo) lo = p[3]; if (p[3] > hi) hi = p[3]; sum += p[3]; });
+        const avg = sum / h.length, span = Math.max(1e-6, hi - lo);
+        if (style === 'autospan') return (p) => hue(1 - (p[3] - lo) / span); // red = strongest lift, blue = weakest
+        return (p) => (p[3] >= avg + 0.5 ? '#ff3b30' : p[3] <= avg - 0.5 ? '#2f7bff' : '#ff9a1f');
+      }
       const idx = style === 'altitude' ? 2 : 4;
       let lo = Infinity, hi = -Infinity;
       h.forEach((p) => { if (p[idx] < lo) lo = p[idx]; if (p[idx] > hi) hi = p[idx]; });
@@ -461,13 +474,15 @@
     }
 
     /** FLARM targets on the map: arrow along their track, colour by alarm level, relative altitude. */
-    drawTraffic(c, list, toScreen, vp) {
+    drawTraffic(c, list, toScreen, vp, st) {
+      st = st || {};
       const rot = vp.up === 'track' ? vp.track * D2R : 0;
       list.forEach((t) => {
         if (t.lat === undefined) return;
         const [x, y] = toScreen(t.lat, t.lon);
         if (x < vp.rect.x - 20 || x > vp.rect.x + vp.rect.w + 20 || y < vp.rect.y - 20 || y > vp.rect.y + vp.rect.h + 20) return;
-        c.save(); c.translate(x, y); LX.symbols.flarmSymbol(c, t, 10, rot); c.restore();
+        c.save(); c.translate(x, y); LX.symbols.flarmSymbol(c, t, st.flarmSymbolSize || 10, rot); c.restore();
+        if (st.flarmLabels === 'none' || (st.flarmLabels === 'near' && Math.abs(t.dh) > 300)) return;
         const dh = Math.round(Math.abs(LX.units.alt(t.dh)) / 10) * 10;
         LX.symbols.otext(c, `${t.dh >= 0 ? '+' : '−'}${dh}${t.vs > 0.5 ? '↑' : t.vs < -0.5 ? '↓' : ''}`, x + 11, y + 4, 12, { weight: 'normal' });
       });
