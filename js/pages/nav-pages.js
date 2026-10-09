@@ -759,7 +759,7 @@
       const vp = this._vp;
       if (!vp || performance.now() - vp.t > 600 || (this.kind === 'custom' && this.editing)) return false;
       if (!this.panMode) { this.panMode = true; this.dragPan = true; this.pan = { e: 0, n: 0 }; this.scr.toast('Map panned: press PAN to centre on the glider again', 2500); }
-      this.thermalOverride = true;
+      // (no thermalOverride here: leaving thermal mode would switch the north-up thermal map back to track-up)
       // the content follows the pointer, so the view centre moves the other way (screen frame: x right, y down)
       let e = -dx * vp.mpp, n = dy * vp.mpp;
       if (vp.up === 'track') { const a = vp.track * Math.PI / 180, s = Math.sin(a), c = Math.cos(a); const e2 = e * c + n * s, n2 = -e * s + n * c; e = e2; n = n2; }
