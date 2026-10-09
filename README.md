@@ -162,7 +162,12 @@ implemented), SoaringSpot, SD/USB/Connect/Wi-Fi, passwords/admin, languages othe
 TO NANO (task declaration to a Nano recorder), the satellite sky view and FREQ on the info pages,
 the Thermal Mode setup (enable, page zoom, track length/colouring, switch angle),
 centre-of-gravity limits in Weight and Balance, Save to SD, OLC points scoring, and per-symbol fonts in
-the layout editor. Airspace has no keyless download source I could verify – load a file
+the layout editor. Found by a read-through of the manual's Setup chapters (7.1.1-7.1.12): in **QNH and RES** an independent
+Safety Mc, magnetic variation, the four ETA/ETE calculation methods and Soaring start; in **Graphics** (7.1.7) only a
+few switches exist, so terrain colour schemes and land-feature elements, weather layers (need an account), airspace
+type styling and filters, waypoint label details and runway filters, flown-path colouring styles, the track/target
+line options, range circles and the glider range area are all missing; in **Hardware** the I8/I9 indicator setups,
+Bridge 232, rear/front seat, angle of attack, engine, flaps and analog inputs. Airspace has no keyless download source I could verify – load a file
 (Setup → Files and Transfer → Airspace lists the free websites).
 
 ## Layout
