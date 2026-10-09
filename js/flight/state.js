@@ -102,6 +102,7 @@
       f.roll = num(v.roll, f.roll);
       f.windDir = num(v.wdir, f.windDir);
       f.magvar = num(v.magvar, f.magvar);
+      f.oat = Number.isFinite(v.oat) ? v.oat : null; // null: no outside temperature from the simulator -> ISA model
       f.windSpd = num(v.wspd * KT, f.windSpd);
       if (Number.isFinite(v.qnh)) f.qnhSim = v.qnh * LX.util.INHG_TO_HPA;
       if (Number.isFinite(v.gelev)) f.gelev = v.gelev;

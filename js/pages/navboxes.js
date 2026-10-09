@@ -25,7 +25,7 @@
   def('Agl', 'Agl', (h) => [LX.fm.alt(h.f.alt - h.ctx.groundElev(h.f)), U().label('alt')], 'Height above ground');
   def('Alt', 'Alt', (h) => [LX.fm.alt(h.f.alt), U().label('alt')], 'Altitude above MSL');
   def('AltGps', 'AltGps', (h) => [LX.fm.alt(h.f.alt), U().label('alt')], 'GPS altitude');
-  def('AltIGC', 'AltIGC', (h) => [LX.fm.alt(h.f.alt), U().label('alt')], 'Altitude (pressure sensor)');
+  def('AltIGC', 'AltIGC', (h) => [LX.fm.alt(h.f.alt - ((h.f.qnhSim || 1013.25) - 1013.25) * 8.23), U().label('alt')], 'Pressure altitude (standard 1013.25 hPa, as recorded in the IGC file)');
   def('AltInv', 'AltInv', (h) => [num(h.f.alt * (U().label('alt') === 'm' ? 3.28084 : 1), 0), U().label('alt') === 'm' ? 'ft' : 'm'], 'Altitude in the opposite unit');
   def('AltGain', 'AltGain', (h) => { const t = h.ctx.flight.thermal; return t ? [LX.fm.alt(h.f.alt - t.alt0), U().label('alt')] : none; }, 'Altitude gained in the current thermal');
   def('Arrival', 'Arrival', (h) => [h.nav ? LX.fmt.signed(U().alt(h.nav.arrival), 0) : '---', U().label('alt')], 'Arrival altitude at the target');
@@ -64,9 +64,10 @@
   def('Netto', 'Netto', (h) => [LX.fm.vario(h.f.netto), U().label('vario')], 'Netto vertical speed of the air mass');
   def('netto avg', 'netto avg', (h) => [LX.fm.vario(h.f.avgN), U().label('vario')], 'Average netto');
   def('Near.Apt', 'Near.Apt', (h) => { const n = h.ctx.nav.nearest(h.f.lat, h.f.lon, 1)[0]; return [n ? n.w.name.slice(0, 10) : '---', '']; }, 'Nearest airport');
-  def('OAT', 'OAT', (h) => [num(15 - 0.0065 * h.f.alt, 1), '°C'], 'Outside temperature (ISA model)');
+  const oat = (f) => (f.oat === null || f.oat === undefined ? 15 - 0.0065 * f.alt : f.oat); // FlightGear air temperature, ISA when unavailable
+  def('OAT', 'OAT', (h) => [num(oat(h.f), 1), '°C'], 'Outside temperature (simulator, ISA model if not available)');
   def('Opt', 'Opt', (h) => [LX.fm.dist(h.ctx.flownDist), U().label('dist')], 'Distance flown (the optimisation result is on the Statistics page)');
-  def('Pot.Temp', 'Pot.Temp', (h) => [num(15 + 0.0098 * h.f.alt - 0.0065 * h.f.alt, 1), '°C'], 'Potential temperature (ISA model)');
+  def('Pot.Temp', 'Pot.Temp', (h) => [num(oat(h.f) + 0.0098 * h.f.alt, 1), '°C'], 'Potential temperature: OAT brought to sea level on the dry adiabat');
   def('QNH', 'QNH', (h) => [num(h.ctx.settings.get().qnh, 1), 'hPa'], 'QNH setting');
   def('Radial', 'Radial', (h) => [h.nav ? LX.fm.hdg(LX.geo.bearing(h.nav.target.lat, h.nav.target.lon, h.f.lat, h.f.lon)) : '---', ''], 'Radial from the target');
   def('Radius', 'Radius', (h) => { const w = Math.abs(h.f.turnRate) * Math.PI / 180; return [h.f.circling && w > 0.02 ? num(h.f.gs / w, 0) : '---', 'm']; }, 'Circling radius');
