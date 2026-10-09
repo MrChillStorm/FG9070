@@ -446,6 +446,10 @@
   function weatherSetup(scr, ctx) {
     const wx = ctx.weather;
     if (!wx.satLayers) wx.loadSatLayers();
+    const satOpts = ['']; // filled in place, also when the list arrives after the form was opened
+    const fillSat = () => { satOpts.length = 1; wx.satOptions(S().get().wxSatAll).forEach((n) => satOpts.push(n)); };
+    fillSat();
+    wx.onSatLayers = fillSat;
     const status = (k) => info('', () => wx.status[k], { wide: true });
     return new FormView(scr, {
       title: 'Weather',
@@ -453,7 +457,9 @@
       fields: [
         section('Satellite (EUMETSAT Meteosat)'),
         check('', 'wxSat', 'Show satellite layer'),
-        Object.assign({ type: 'select', label: 'Layer', options: [''].concat(wx.satLayers || []), wide: true, show: (v) => v || 'Automatic (' + (wx.satLayerName(S().get()) || 'loading') + ')' }, bind('wxSatLayer')),
+        Object.assign({ type: 'select', label: 'Layer', options: satOpts, wide: true, show: (v) => (v ? LX.Weather.describeSat(v).label : 'Automatic (' + (wx.satLayerName(S().get()) ? LX.Weather.describeSat(wx.satLayerName(S().get())).label : 'loading') + ')') }, bind('wxSatLayer')),
+        info('', () => { const n = wx.satLayerName(S().get()); return n ? LX.Weather.describeSat(n).desc : 'Loading the layer list...'; }, { wide: true }),
+        Object.assign({ type: 'check', label: '', text: 'Show all layers (advanced, many are technical)', get: () => S().get().wxSatAll, set: (v) => { S().set({ wxSatAll: v }); fillSat(); } }),
         spin('Opacity', 'wxSatOpacity', 10, 100, 10, (v) => v + '%', { coarse: 2 }),
         status('sat'),
         section('Forecast (Open-Meteo, coarse grid)'),

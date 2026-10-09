@@ -42,3 +42,16 @@ assert.strictEqual(on.rasters[0].urlFor(5, 17, 11), 'https://t/v2/radar/x/256/5/
 assert.deepStrictEqual(on.attr, ['Weather data by RainViewer']);
 assert.deepStrictEqual(wx.layers(vp, { wxRain: true, wxMinZoom: 500 }).rasters, [], 'zoomed in closer than the minimum: hidden');
 console.log('weather tests passed');
+
+// plain-language satellite layer names
+const d = LX.Weather.describeSat;
+assert.strictEqual(d('msg_fes:ir108').label, 'Infrared (cloud-top temperature) - Meteosat Europe/Africa');
+assert.ok(d('msg_fes:rgb_naturalenhncd').known && /cumulus/i.test(d('msg_fes:rgb_naturalenhncd').desc));
+assert.ok(d('mtg_fd:hrv').known);
+assert.strictEqual(d('msg_fes:something_odd').known, false, 'unknown layers keep their technical name');
+assert.ok(/something_odd/.test(d('msg_fes:something_odd').label));
+const wx2 = new LX.Weather({ get: () => ({}) });
+wx2.satLayers = ['msg_fes:ir108', 'msg_fes:something_odd', 'msg_iodc:ir108', 'msg_fes:hrv'];
+assert.deepStrictEqual(wx2.satOptions(false), ['msg_fes:ir108', 'msg_fes:hrv'], 'default list: known layers, no Indian Ocean');
+assert.strictEqual(wx2.satOptions(true).length, 4, 'all layers on request');
+console.log('weather label tests passed');

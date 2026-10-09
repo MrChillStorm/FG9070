@@ -38,6 +38,36 @@
     return [...c, 0.55];
   }
 
+  /** Plain-language names for the EUMETView layers (the raw names are technical: msg_fes:ir108 ...). */
+  const SAT_KINDS = [
+    [/natural/i, 'Natural colour (daytime)', 'Looks like a photo from space: cloud, snow and ground. Best for spotting cumulus fields. Daytime only.'],
+    [/hrv/i, 'High-resolution visible (daytime)', 'Sharpest daytime cloud picture; shows individual cumulus. Daytime only.'],
+    [/vis_?006/i, 'Visible 0.6 µm (daytime)', 'Plain daytime cloud picture in black and white.'],
+    [/vis_?008/i, 'Visible 0.8 µm (daytime)', 'Daytime cloud and vegetation, black and white.'],
+    [/nir_?016/i, 'Near infrared 1.6 µm (daytime)', 'Tells ice cloud from water cloud and snow from cloud. Daytime only.'],
+    [/ir_?108/i, 'Infrared (cloud-top temperature)', 'Works day and night. The colder the grey/colour, the higher the cloud top.'],
+    [/ir_?039/i, 'Infrared 3.9 µm (low cloud, fog)', 'Shows low cloud and fog at night; sun glint by day.'],
+    [/ir_?120/i, 'Infrared 12.0 µm', 'Like the 10.8 µm infrared; for experts.'],
+    [/ir_?134/i, 'Infrared 13.4 µm (CO2)', 'Temperature of the mid-troposphere; for experts.'],
+    [/ir_?087|ir_?097/i, 'Infrared (ozone / 8.7 µm)', 'For experts.'],
+    [/wv_?062/i, 'Water vapour 6.2 µm', 'Moisture high in the atmosphere; shows jet streams and dry intrusions.'],
+    [/wv_?073/i, 'Water vapour 7.3 µm', 'Moisture in the middle layers of the atmosphere.'],
+    [/clm|cloud_?mask/i, 'Cloud mask', 'Where the satellite sees cloud (a processed product).'],
+    [/cth|cloud_?top/i, 'Cloud top height', 'Height of the cloud tops in colour.'],
+    [/kindex|gii_ki/i, 'K-index (thunderstorm risk)', 'Atmospheric instability derived from the satellite.'],
+    [/liftedindex|gii_li/i, 'Lifted index (instability)', 'Negative values mean an unstable atmosphere.'],
+    [/fire|frp/i, 'Fire detection', 'Active fires seen by the satellite.'],
+  ];
+  const SAT_REGIONS = { msg_fes: 'Meteosat Europe/Africa', mtg_fd: 'Meteosat Third Gen.', msg_iodc: 'Meteosat Indian Ocean' };
+
+  /** { label, desc, known } for a layer name like "msg_fes:ir108". Unknown layers keep their technical name. */
+  function describeSat(name) {
+    const [ws, rest] = String(name).split(':');
+    const region = SAT_REGIONS[ws] || ws;
+    const k = SAT_KINDS.find((e) => e[0].test(rest || ''));
+    return k ? { label: `${k[1]} - ${region}`, desc: k[2], known: true } : { label: `${rest || name} - ${region}`, desc: 'Technical layer without a description. Try it and see.', known: false };
+  }
+
   class Weather {
     constructor(settings) {
       this.S = settings;
@@ -90,8 +120,15 @@
         // real layers are workspace-qualified (msg_fes:ir108); keep the full-disc Meteosat ones
         this.satLayers = [...new Set(names.filter((n) => /^(msg_fes|msg_iodc|mtg_fd):/.test(n)))].sort();
         this.status.sat = this.satLayers.length + ' Meteosat layers';
+        if (this.onSatLayers) this.onSatLayers();
       } catch (e) { this.status.sat = 'failed: ' + e.message; setTimeout(() => { this._busy.sat = false; }, 300000); return; }
       this._busy.sat = false;
+    }
+
+    /** Layers to offer: the ones with a plain-language name (Europe/Africa and Meteosat Third Gen.), or everything with "all". */
+    satOptions(showAll) {
+      const ls = this.satLayers || [];
+      return showAll ? ls : ls.filter((n) => describeSat(n).known && !/^msg_iodc:/.test(n));
     }
 
     satLayerName(s) {
@@ -170,5 +207,6 @@
 
   LX.Weather = Weather;
   LX.Weather.tileBBox = tileBBox;
+  LX.Weather.describeSat = describeSat;
   LX.Weather.fcColor = fcColor;
 })(window);
