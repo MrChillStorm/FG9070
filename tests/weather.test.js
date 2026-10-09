@@ -1,0 +1,110 @@
+// Run: node tests/weather.test.js  – weather layer logic (no network)
+const assert = require('assert');
+global.window = global;
+global.LX = {};
+require('../js/nav/weather.js');
+const W = LX.Weather;
+
+// web-mercator bbox of a tile: whole world at z0, a quadrant at z1
+const bb = (z, x, y) => W.tileBBox(z, x, y).split(',').map(Number);
+assert.ok(Math.abs(bb(0, 0, 0)[0] + 20037508.343) < 1 && Math.abs(bb(0, 0, 0)[3] - 20037508.343) < 1);
+const q = bb(1, 1, 0); // north-east quadrant
+assert.ok(Math.abs(q[0]) < 1 && Math.abs(q[1]) < 1 && Math.abs(q[2] - 20037508.343) < 1 && Math.abs(q[3] - 20037508.343) < 1);
+
+// forecast colours
+assert.ok(W.fcColor('cloud_cover', 100)[3] > W.fcColor('cloud_cover', 10)[3], 'more cloud = more opaque');
+assert.strictEqual(W.fcColor('precipitation', 0)[3], 0, 'no rain = invisible');
+const lo = W.fcColor('cape', 0), hi = W.fcColor('cape', 3000);
+assert.ok(hi[0] > lo[0] && hi[2] < lo[2], 'CAPE goes blue -> red');
+
+// rain frame choice: history span 0 = newest, otherwise a loop with the newest held for "freeze"
+const wx = new W({ get: () => ({}) });
+wx.rain = { host: 'h', frames: [0, 1, 2, 3].map((i) => ({ time: 1000 + i * 600, path: '/p' + i })), fetched: 0 };
+assert.strictEqual(wx.rainFrame(5000, { wxRainHistory: 0 }).path, '/p3');
+const seen = new Set(); for (let t = 0; t < 4 * 600 + 3000; t += 100) seen.add(wx.rainFrame(t, { wxRainHistory: 30, wxRainFreeze: 3 }).path);
+assert.ok(seen.has('/p0') && seen.has('/p3'), 'the loop covers the 30 minute span');
+assert.strictEqual(wx.rainFrame(4 * 600 + 100, { wxRainHistory: 30, wxRainFreeze: 3 }).path, '/p3', 'newest frame is held during the freeze time');
+
+// satellite layer choice: the chosen one, else IR 10.8 / natural colour / HRV / first
+wx.satLayers = ['msg_fes:hrv', 'msg_fes:ir108', 'msg_fes:rgb_naturalenhncd', 'mtg_fd:vis'];
+assert.strictEqual(wx.satLayerName({}), 'msg_fes:ir108', 'infrared first: it has data day and night');
+assert.strictEqual(wx.satLayerName({ wxSatLayer: 'mtg_fd:vis' }), 'mtg_fd:vis');
+wx.satLayers = ['msg_fes:ir039', 'msg_fes:hrv'];
+assert.strictEqual(wx.satLayerName({}), 'msg_fes:hrv');
+
+// layers(): nothing enabled -> nothing; minimum zoom distance hides them when zoomed in
+const vp = { rect: { w: 800, h: 480 }, mpp: 100, scaleKm: 10, box: { lat0: 46, lat1: 47, lon0: 14, lon1: 15 } };
+assert.deepStrictEqual(wx.layers(vp, {}).rasters, []);
+wx.rain = { host: 'https://t', frames: [{ time: 1, path: '/v2/radar/x' }], fetched: Date.now() };
+const on = wx.layers(vp, { wxRain: true, wxRainOpacity: 50 });
+assert.strictEqual(on.rasters.length, 1);
+assert.strictEqual(on.rasters[0].urlFor(5, 17, 11), 'https://t/v2/radar/x/256/5/17/11/2/1_1.png');
+assert.deepStrictEqual(on.attr, ['Weather data by RainViewer']);
+assert.deepStrictEqual(wx.layers(vp, { wxRain: true, wxMinScale: 50 }).rasters, [], 'map scale 10 km is closer than the 50 km step: hidden');
+assert.strictEqual(wx.layers(vp, { wxRain: true, wxMinScale: 10 }).rasters.length, 1, 'at the chosen step: shown');
+assert.strictEqual(wx.layers(Object.assign({}, vp, { scaleKm: 100 }), { wxRain: true, wxMinScale: 50 }).rasters.length, 1, 'wider than the step: shown');
+console.log('weather tests passed');
+
+// plain-language satellite layer names
+const d = LX.Weather.describeSat;
+assert.strictEqual(d('msg_fes:ir108').label, 'Infrared (cloud-top temperature) - Meteosat Europe/Africa');
+assert.ok(d('msg_fes:rgb_naturalenhncd').known && /cumulus/i.test(d('msg_fes:rgb_naturalenhncd').desc));
+assert.ok(d('mtg_fd:hrv').known);
+assert.strictEqual(d('msg_fes:something_odd').known, false, 'unknown layers keep their technical name');
+assert.ok(/something_odd/.test(d('msg_fes:something_odd').label));
+const wx2 = new LX.Weather({ get: () => ({}) });
+wx2.satLayers = ['msg_fes:ir108', 'msg_fes:something_odd', 'msg_iodc:ir108', 'msg_fes:hrv'];
+assert.deepStrictEqual(wx2.satOptions(false), ['msg_fes:ir108', 'msg_fes:hrv'], 'default list: known layers, no Indian Ocean');
+assert.strictEqual(wx2.satOptions(true).length, 4, 'all layers on request');
+console.log('weather label tests passed');
+
+// forecast grid: fixed lattice, cached cells, no request storm (Open-Meteo counts each location as one call)
+(async () => {
+  const box = { lat0: 45.5, lat1: 47.1, lon0: 13.1, lon1: 15.3 };
+  assert.strictEqual(LX.Weather.fcStep(box), 0.5, '8 cells across 2.2 degrees is 0.275 -> the 0.5 degree lattice');
+  const cells = LX.Weather.fcCells(box, 0.5);
+  assert.ok(cells.every((c) => Math.abs(c.lat / 0.5 - Math.round(c.lat / 0.5)) < 1e-6), 'cell centres sit on the lattice');
+  // the same cells come back after a small pan (cache keys are stable)
+  const pan = LX.Weather.fcCells({ lat0: 45.52, lat1: 47.12, lon0: 13.12, lon1: 15.32 }, 0.5);
+  assert.ok(pan.filter((c) => cells.some((d) => d.key === c.key)).length >= cells.length - 12, 'panning reuses most cells');
+
+  // a failed request (HTTP 429) pauses everything: 30 calls -> exactly one request
+  let calls = 0;
+  global.fetch = async () => { calls++; return { ok: false, status: 429 }; };
+  const w = new LX.Weather({ get: () => ({}) });
+  for (let i = 0; i < 30; i++) await w.loadForecast({}, box);
+  assert.strictEqual(calls, 1, 'one request, then a pause');
+  assert.ok(/too many requests/.test(w.status.fc));
+
+  // success: at most 48 cells per request, requests are spaced, then cells are cached (no refetch)
+  const urls = [];
+  global.fetch = async (u) => {
+    urls.push(u);
+    const n = new URL(u).searchParams.get('latitude').split(',').length;
+    const times = Array.from({ length: 48 }, (_, i) => new Date(Date.UTC(2026, 9, 9, i % 24)).toISOString().slice(0, 13) + ':00');
+    return { ok: true, status: 200, json: async () => Array.from({ length: n }, () => ({ hourly: { time: times, cloud_cover: times.map(() => 80), cape: times.map(() => 0), boundary_layer_height: times.map(() => 1000), precipitation: times.map(() => 0) } })) };
+  };
+  const w2 = new LX.Weather({ get: () => ({}) });
+  await w2.loadForecast({}, box);
+  assert.strictEqual(urls.length, 1);
+  assert.ok(new URL(urls[0]).searchParams.get('latitude').split(',').length <= 30, 'at most 30 cells per request');
+  await w2.loadForecast({}, box); // within 6 s: nothing
+  assert.strictEqual(urls.length, 1, 'requests are spaced');
+  w2.fcNext = 0;
+  while (w2.fcCache.size < cells.length) { const before = urls.length; await w2.loadForecast({}, box); w2.fcNext = 0; if (urls.length === before) break; }
+  const n1 = urls.length; w2.fcNext = 0; await w2.loadForecast({}, box);
+  assert.strictEqual(urls.length, n1, 'everything cached: no more requests');
+  const blobs = w2.fcBlobs(0, { wxFcParam: 'cloud_cover' }, box);
+  assert.ok(blobs && blobs.length === cells.length && blobs[0].color[3] > 0.5, 'blobs for every cell, cloudy = opaque');
+  console.log('forecast grid tests passed');
+})().catch((e) => { console.error(e); process.exit(1); });
+
+// satellite requests carry the time the service offers (a bare request can give HTTP 500 for products with gaps)
+{
+  const w = new LX.Weather({ get: () => ({}) });
+  w.satLayers = ['msg_fes:ir108']; w.satFetched = Date.now(); w.satTimes = { 'msg_fes:ir108': '2026-10-09T10:00:00.000Z' };
+  const L = w.layers({ rect: { w: 800, h: 480 }, mpp: 100 }, { wxSat: true }).rasters[0];
+  assert.ok(/[?&]time=2026-10-09T10%3A00%3A00\.000Z/.test(L.urlFor(5, 17, 11)), 'time parameter present');
+  assert.ok(/layers=msg_fes%3Air108/.test(L.urlFor(5, 17, 11)));
+  console.log('satellite time tests passed');
+}

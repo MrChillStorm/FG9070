@@ -67,7 +67,7 @@
         spin('Integrator time', 'integrator', 1, 60, 1, (v) => v + 'sec', { coarse: 5 }),
         select('Auto SC', 'autoSC', ['OFF', 'GPS', 'G-load', 'IAS']),
         check('', 'autoResetIntegrator', 'Auto reset integrator'),
-        spin('Netto filter', 'nettoTau', 0.1, 20, 0.1, sec, { coarse: 10 }),
+        spin('Netto filter', 'nettoFilter', 0.1, 20, 0.1, sec, { coarse: 10 }),
         spin('SC filter', 'scTau', 0.1, 20, 0.1, sec, { coarse: 10 }),
         spin('Relative filter', 'relTau', 0.1, 20, 0.1, sec, { coarse: 10 }),
         spin('Netto time', 'nettoTime', 1, 60, 1, (v) => v + 'sec', { coarse: 5 }),
@@ -145,6 +145,22 @@
     ], { title: 'Sounds' });
   }
 
+  /* Water ballast spin: kg of water, or wing loading in kg/m2 when Setup > Units > Ballast entry is "load". */
+  LX.ballastField = function (label) {
+    const maxB = () => LX.polar.glider(S().get().glider).maxBallast;
+    const load = () => S().get().ballastMode === 'load';
+    const dry = () => { const s = S().get(); return (s.wbEmpty + s.wbPilot + s.wbCopilot + s.wbChute) / s.wbArea; };
+    return {
+      type: 'spin', label, coarse: 4,
+      get: () => (load() ? Math.round(LX.polar.wingLoading(S().get()) * 10) / 10 : S().get().ballast),
+      set: (v) => S().set({ ballast: load() ? LX.polar.ballastFromLoad(S().get(), v, maxB()) : Math.min(v, maxB()) }),
+      get min() { return load() ? Math.ceil(dry() * 10) / 10 : 0; },
+      get max() { return load() ? Math.floor(LX.polar.wingLoading(Object.assign({}, S().get(), { ballast: maxB() })) * 10) / 10 : maxB(); },
+      get step() { return load() ? 0.5 : 5; },
+      fmt: (v) => (load() ? num(v, 1) + ' kg/m²' : v + ' kg'),
+    };
+  };
+
   /* ------------------------------------------------------------ Setup > Units */
   function unitsDialog(scr) {
     return new FormView(scr, {
@@ -154,7 +170,8 @@
         select('Altitude', 'uAlt', ['m', 'ft']),
         select('Vario', 'uVario', ['m/s', 'kt', 'ft/min']),
         select('Distance', 'uDist', ['km', 'nm', 'sm']),
-        info('Dist. calc. method', () => 'FAI sphere'),
+        { type: 'select', label: 'Dist. calc. method', options: ['fai', 'wgs84'], show: (v) => (v === 'wgs84' ? 'WGS84 ellipsoid' : 'FAI sphere'), get: () => S().get().distMethod, set: (v) => S().set({ distMethod: v }) },
+        { type: 'select', label: 'Ballast entry', options: ['weight', 'load'], show: (v) => (v === 'load' ? 'Load (kg/m²)' : 'Weight (kg)'), get: () => S().get().ballastMode, set: (v) => S().set({ ballastMode: v }) },
       ],
       buttons: {
         6: {
@@ -238,42 +255,352 @@
   }
 
   /* ------------------------------------------------- Setup > Polar and Glider */
+  const gliderOf = () => LX.polar.glider(S().get().glider);
+  /** Patch the active user glider (stored in the gliders setting). */
+  function editGlider(patch) {
+    const id = S().get().glider, all = Object.assign({}, S().get().gliders);
+    if (!all[id]) return;
+    all[id] = Object.assign({}, all[id], patch);
+    S().set({ gliders: all });
+  }
+  const userOnly = () => LX.polar.isUser(S().get().glider);
+  const gSpin = (label, key, min, max, step, fmt, extra) => Object.assign({
+    type: 'spin', label, min, max, step, fmt, coarse: 10,
+    get: () => { const v = gliderOf()[key]; return v === undefined ? min : v; },
+    set: (v) => editGlider({ [key]: Math.round(v * 1e7) / 1e7 }),
+  }, extra || {});
+
+  function polarEdit(scr, ctx) {
+    return new FormView(scr, {
+      title: 'Glider Polar',
+      live: true,
+      fields: [
+        { type: 'action', label: 'Name', text: gliderOf().name, wide: true, run: (sc, form) => {
+          const v = global.prompt('Glider name', gliderOf().name); if (v !== null && v.trim()) { editGlider({ name: v.trim() }); form.render(); } } },
+        gSpin('a', 'a', 0, 0.001, 0.000001, (v) => v.toFixed(6), { coarse: 10 }),
+        gSpin('b', 'b', -0.2, 0, 0.0001, (v) => v.toFixed(4), { coarse: 10 }),
+        gSpin('c', 'c', 0, 10, 0.001, (v) => v.toFixed(3), { coarse: 10 }),
+        gSpin('Ref. weight', 'mass', 100, 1000, 1, (v) => v + ' kg', { coarse: 10 }),
+        info('Ref. load', () => { const g = gliderOf(); return num(g.mass / S().get().wbArea, 1) + ' kg/m²'; }),
+        gSpin('Max ballast', 'maxBallast', 0, 500, 5, (v) => v + ' kg', { coarse: 4 }),
+        info('Best L/D', () => { const c = LX.polar.characteristics(ctx.flight.getPolar()); return `${num(c.bestLD.ld, 1)} @ ${num(U().speed(c.bestLD.v), 0)} ${U().label('speed')}`; }),
+        info('Min sink', () => { const c = LX.polar.characteristics(ctx.flight.getPolar()); return `${num(U().vario(-c.minSink.w), 2)} ${U().label('vario')} @ ${num(U().speed(c.minSink.v), 0)}`; }),
+        section('w = a v² + b v + c   (v in km/h, w = sink in m/s). Do not change the reference weight unless you also change a, b and c.'),
+      ],
+    });
+  }
+
+  function speedsEdit(scr, ctx) {
+    const kmh = (v) => v + ' km/h';
+    const fields = [
+      gSpin('Stall speed', 'stall', 30, 150, 1, kmh, { coarse: 5 }),
+      gSpin('Vne', 'vne', 100, 400, 5, kmh, { coarse: 4 }),
+    ];
+    for (let i = 0; i < 3; i++) {
+      const flap = () => (gliderOf().flaps || [])[i] || { label: '', vmin: 0, vmax: 0 };
+      const put = (patch) => { const fl = (gliderOf().flaps || []).slice(); while (fl.length <= i) fl.push({ label: '', vmin: 0, vmax: 0 }); fl[i] = Object.assign({}, fl[i], patch); editGlider({ flaps: fl }); };
+      fields.push(
+        { type: 'action', label: 'Flap ' + (i + 1), text: flap().label || '(not set)', run: (sc, form) => { const v = global.prompt('Flap position label', flap().label); if (v !== null) { put({ label: v.trim().slice(0, 4) }); form.render(); } } },
+        { type: 'spin', label: '  from', min: 0, max: 400, step: 5, coarse: 4, get: () => flap().vmin, set: (v) => put({ vmin: v }), fmt: kmh },
+        { type: 'spin', label: '  to', min: 0, max: 400, step: 5, coarse: 4, get: () => flap().vmax, set: (v) => put({ vmax: v }), fmt: kmh },
+      );
+    }
+    fields.push(
+      info('Suggested flap', () => { const f = ctx.flight.f; return LX.polar.suggestFlap(gliderOf(), f.ias, f.gForce, ctx.flight.getPolar().mass) || '--'; }),
+      section('Speeds are for the reference weight; the suggestion is corrected for current weight and G-load. A stall warning sounds below the stall speed.'),
+    );
+    return new FormView(scr, { title: 'Glider Speeds', live: true, fields });
+  }
+
+  function dumpEdit(scr) {
+    const fields = [];
+    for (let i = 0; i < 3; i++) {
+      const row = () => (gliderOf().dump || [])[i] || [0, 0];
+      const put = (j, v) => { const d = (gliderOf().dump || []).map((r) => r.slice()); while (d.length <= i) d.push([0, 0]); d[i][j] = v; editGlider({ dump: d }); };
+      fields.push(
+        { type: 'spin', label: 'Water ' + (i + 1), min: 0, max: 500, step: 5, coarse: 4, get: () => row()[0], set: (v) => put(0, v), fmt: (v) => v + ' kg' },
+        { type: 'spin', label: 'Rate ' + (i + 1), min: 0, max: 100, step: 0.5, coarse: 10, get: () => row()[1], set: (v) => put(1, v), fmt: (v) => v + ' l/min' },
+      );
+    }
+    fields.push(
+      info('Dump all ballast', () => { const t = LX.polar.dumpTime(gliderOf(), S().get().ballast); return t ? Math.floor(t / 60) + ' min ' + Math.round(t % 60) + ' s' : '--'; }),
+      section('Rate of water dump for a given amount of water in the tank. One point means a constant rate; rate 0 = point unused.'),
+    );
+    return new FormView(scr, { title: 'Glider Dump Rates', live: true, fields });
+  }
+
   function polarGlider(scr, ctx) {
-    const ids = Object.keys(LX.polar.GLIDERS);
+    const ids = LX.polar.ids();
+    const refresh = () => { ids.length = 0; LX.polar.ids().forEach((i) => ids.push(i)); };
+    const warn = (what) => scr.toast('Built-in glider: press NEW to make an editable copy (' + what + ')', 3500);
+    const need = (run) => (sc, form) => { if (userOnly()) run(sc, form); else warn('polar, speeds, dump rates'); };
     return new FormView(scr, {
       title: 'Polar and Glider',
       fields: [
-        Object.assign({ type: 'select', label: 'Glider', options: ids, wide: true, show: (v) => LX.polar.GLIDERS[v].name }, bind('glider')),
-        {
-          type: 'spin', label: 'Water ballast', min: 0, step: 5, coarse: 4,
-          get: () => S().get().ballast,
-          set: (v) => S().set({ ballast: Math.min(v, LX.polar.GLIDERS[S().get().glider].maxBallast) }),
-          get max() { return LX.polar.GLIDERS[S().get().glider].maxBallast; },
-          fmt: (v) => v + ' kg',
-        },
+        Object.assign({ type: 'select', label: 'Glider', options: ids, wide: true, show: (v) => LX.polar.glider(v).name }, bind('glider')),
+        LX.ballastField('Water ballast'),
         spin('Bugs', 'bugs', 0, 30, 1, (v) => v + '%'),
         info('Best L/D', () => { const p = ctx.flight.getPolar(), c = LX.polar.characteristics(p); return `${num(c.bestLD.ld, 1)} @ ${num(U().speed(c.bestLD.v), 0)} ${U().label('speed')}`; }),
         info('Min sink', () => { const p = ctx.flight.getPolar(), c = LX.polar.characteristics(p); return `${num(U().vario(-c.minSink.w), 2)} ${U().label('vario')} @ ${num(U().speed(c.minSink.v), 0)}`; }),
         info('Mass', () => num(ctx.flight.getPolar().mass, 0) + ' kg'),
-        section('Polar points are approximations: replace in js/flight/polar.js'),
+        { type: 'action', label: 'New glider', text: 'COPY ACTIVE', run: (sc, form) => {
+          const users = Object.keys(S().get().gliders);
+          if (users.length >= LX.polar.MAX_USER) { scr.toast('Up to ' + LX.polar.MAX_USER + ' gliders can be stored: delete one first', 3000); return; }
+          let n = 1; while (S().get().gliders['u' + n]) n++;
+          const id = 'u' + n, all = Object.assign({}, S().get().gliders, { [id]: LX.polar.copyOf(S().get().glider) });
+          S().set({ gliders: all, glider: id }); refresh(); form.render();
+        } },
+        { type: 'action', label: 'Delete glider', text: 'DELETE', run: (sc, form) => {
+          if (!userOnly()) { scr.toast('Built-in gliders cannot be deleted', 2500); return; }
+          const id = S().get().glider, all = Object.assign({}, S().get().gliders); delete all[id];
+          S().set({ gliders: all, glider: 'ask21' }); refresh(); form.render();
+        } },
+        { type: 'action', label: 'Polar', text: 'EDIT', run: need((sc) => sc.open(polarEdit(sc, ctx))) },
+        { type: 'action', label: 'Speeds', text: 'EDIT', run: need((sc) => sc.open(speedsEdit(sc, ctx))) },
+        { type: 'action', label: 'Dump rates', text: 'EDIT', run: need((sc) => sc.open(dumpEdit(sc))) },
+        { type: 'action', label: 'Weight and balance', text: 'OPEN', run: (sc) => sc.open(LX.setup2.weightBalance(sc, ctx)) },
+        section('A copied glider is scaled by the total weight from Weight and Balance. Built-in polars are approximations.'),
       ],
       live: true,
     });
   }
 
   /* ----------------------------------------------------------- Setup > Graphics */
-  function graphics(scr) {
+  function mapAndTerrain(scr) {
     return new FormView(scr, {
-      title: 'Graphics',
+      title: 'Map and Terrain',
       fields: [
+        check('', 'showMap', 'Show map'),
+        check('', 'shadows', 'Shadows'),
+        Object.assign({ type: 'select', label: 'Terrain quality', options: ['high', 'medium', 'low', 'off'], show: (v) => ({ high: 'High', medium: 'Medium', low: 'Low', off: 'Off (no terrain)' }[v]) }, bind('terrainQuality')),
+        Object.assign({ type: 'select', label: 'Colour scheme', options: Object.keys(LX.Map.SCHEME_NAMES), show: (v) => LX.Map.SCHEME_NAMES[v] }, bind('terrainScheme')),
+        spin('Offset', 'terrainOffset', -1000, 1000, 50, (v) => (v > 0 ? '+' : '') + num(U().alt(v), 0) + ' ' + U().label('alt'), { coarse: 4 }),
+        colorSel('Background', 'mapBackground'),
+        check('', 'showWindLines', 'Show wind direction'),
         Object.assign({ type: 'select', label: 'Map orientation', options: ['track', 'north'], show: (v) => (v === 'track' ? 'Track up' : 'North up') }, bind('mapUp')),
         Object.assign({ type: 'select', label: 'Base map', options: ['off', 'opentopomap', 'osm'], wide: true, show: (v) => ({ off: 'Procedural terrain (offline)', opentopomap: 'OpenTopoMap tiles (online)', osm: 'OpenStreetMap tiles (online)' }[v]) }, bind('tiles')),
         Object.assign({ type: 'select', label: 'Terrain data', options: ['terrarium', 'off'], wide: true, show: (v) => (v === 'off' ? 'Procedural terrain only (offline)' : 'Elevation tiles (online, falls back to procedural)') }, bind('terrain')),
         check('', 'showAirspace', 'Show airspace'),
         check('', 'showThermals', 'Show thermal markers'),
-        section('Tiles need internet access in the browser; attribution is drawn on the map.'),
+        section('Tiles need internet access in the browser; attribution is drawn on the map. Label zoom, land-feature elements and raster maps are not configurable.'),
       ],
     });
+  }
+
+  /* named colours for the Graphics colour items (value = CSS colour) */
+  const COLORS = { '#ff3b30': 'Red', '#ff9a1f': 'Orange', '#ffd400': 'Yellow', '#29d35a': 'Green', '#1a8a3a': 'Dark green', '#5fd0ff': 'Cyan', '#1a3cff': 'Blue', '#ff2fd5': 'Magenta', '#ffffff': 'White', '#8a8f99': 'Grey', '#464646': 'Dark grey', '#000000': 'Black' };
+  const colorSel = (label, key) => Object.assign({ type: 'select', label, options: Object.keys(COLORS), show: (v) => COLORS[v] || v }, bind(key));
+  const widthSel = (label, key) => spin(label, key, 1, 8, 1, (v) => v + ' px');
+
+  /* ------------------------------------- Setup > Graphics > Glider and Track (7.1.7.5) */
+  function gliderTrack(scr) {
+    const PS = { fixed: 'Fixed colour', mc: 'Mc (vs. MacCready)', vario: 'Vario', altitude: 'Altitude', speed: 'Ground speed' };
+    return new FormView(scr, {
+      title: 'Glider and Track',
+      fields: [
+        check('', 'showPath', 'Show path'),
+        spin('Path length', 'pathLength', 5, 180, 5, (v) => v + ' min', { coarse: 4 }),
+        Object.assign({ type: 'select', label: 'Path style', options: Object.keys(PS), show: (v) => PS[v] }, bind('pathStyle')),
+        colorSel('Path colour (fixed)', 'pathColor'),
+        widthSel('Path width', 'pathWidth'),
+        check('', 'showTrackLine', 'Show current track'),
+        colorSel('Track colour', 'trackColor'),
+        widthSel('Track width', 'trackWidth'),
+        check('', 'showTargetLine', 'Show target line'),
+        colorSel('Target colour', 'targetColor'),
+        widthSel('Target width', 'targetWidth'),
+        check('', 'showCollision', 'Show terrain collision point'),
+        check('', 'showRangeCircles', 'Show range circles'),
+        colorSel('Range colour', 'rangeColor'),
+        widthSel('Range width', 'rangeWidth'),
+        check('', 'showGlideArea', 'Show glider range area'),
+        colorSel('Area colour', 'areaColor'),
+        colorSel('Area border', 'areaBorder'),
+        Object.assign({ type: 'select', label: 'Fill area', options: ['outside', 'inside'], show: (v) => (v === 'outside' ? 'Outside the range area' : 'Inside the range area') }, bind('areaFill')),
+        section('The range area uses the safety Mc and the wind. No Hawk Netto path style or engine colouring: no HAWK / engine.'),
+      ],
+      buttons: { 6: { label: 'DEFAULT', run: (s, form) => { S().set({ showPath: true, pathLength: 50, pathStyle: 'fixed', pathColor: '#1a3cff', pathWidth: 2, showTrackLine: true, trackColor: '#464646', trackWidth: 2, showTargetLine: true, targetColor: '#ff2fd5', targetWidth: 3, showCollision: true, showRangeCircles: true, rangeColor: '#000000', rangeWidth: 1, showGlideArea: false, areaColor: '#ff9a1f', areaBorder: '#ff9a1f', areaFill: 'outside' }); scr.toast('Defaults restored', 1200); } } },
+    });
+  }
+
+  /* --------------------------------------- Setup > Graphics > Thermal Mode (7.1.7.6 / 7.8) */
+  function thermalModeSetup(scr) {
+    const ZS = LX.Map.ZOOMS;
+    return new FormView(scr, {
+      title: 'Thermal Mode',
+      fields: [
+        check('', 'thermalMode', 'Enabled'),
+        Object.assign({ type: 'select', label: 'Switch by', options: ['circling', 'scvar'], show: (v) => (v === 'circling' ? 'Circling detection' : 'Switching SC / Vario') }, bind('thermalSwitch')),
+        spin('Switch angle', 'thermalAngle', 90, 720, 30, (v) => v + '°', { coarse: 3 }),
+        Object.assign({ type: 'select', label: 'Page zoom', options: ZS.map((_, i) => i), show: (v) => ZS[v] + ' km' }, bind('thermalZoom')),
+        spin('Path length', 'thermalPathLength', 1, 30, 1, (v) => v + ' min', { coarse: 5 }),
+        Object.assign({ type: 'select', label: 'Path colouring', options: ['autospan', 'avgvario', 'mc', 'fixed'], show: (v) => ({ autospan: 'Auto span', avgvario: 'Average vario', mc: 'Mc (vs. MacCready)', fixed: 'Fixed colour' }[v]) }, bind('thermalPathStyle')),
+        widthSel('Path width', 'thermalPathWidth'),
+        section('Leave thermal mode by turning the PAGE or ZOOM knob. No Hawk netto colouring (no HAWK).'),
+      ],
+    });
+  }
+
+  /* --------------------------------------- Setup > Graphics > Optimization (7.1.7.7) */
+  function optimizationLook(scr) {
+    return new FormView(scr, {
+      title: 'Optimization (graphics)',
+      fields: [
+        check('', 'showOpt', 'Show optimization'),
+        colorSel('Optimization colour', 'optColor'),
+        widthSel('Optimization width', 'optWidth'),
+        check('', 'showOptTriangle', 'Show optimized triangle (may not be an FAI triangle)'),
+        check('', 'showFai', 'Show FAI triangle area (assistant)'),
+        colorSel('FAI area colour', 'faiColor'),
+        Object.assign({ type: 'spin', label: 'FAI area opacity', min: 0, max: 60, step: 2, coarse: 10, fmt: (v) => v + '%' }, bind('faiAlpha')),
+        check('', 'faiKmLines', 'Show km lines'),
+      ],
+    });
+  }
+
+  /* --------------------------------------------------- Setup > Graphics > Task (7.1.7.8) */
+  function taskLook(scr) {
+    return new FormView(scr, {
+      title: 'Task (graphics)',
+      fields: [
+        colorSel('Task colour', 'taskColor'),
+        colorSel('Obs. zone colour', 'zoneColor'),
+        spin('Obs. zone opacity', 'zoneAlpha', 0, 60, 5, (v) => v + '%', { coarse: 4 }),
+        check('', 'showSelectedZoneOnly', 'Show selected zone only'),
+        section('Not simulated: flown task display, optimal-track arrow, AAT isolines / fill / text colour.'),
+      ],
+    });
+  }
+
+  /* ------------------------------------------------- Setup > Graphics > FLARM (7.1.7.9) */
+  function flarmLook(scr) {
+    return new FormView(scr, {
+      title: 'FLARM (graphics)',
+      fields: [
+        check('', 'showFlarm', 'Show FLARM objects'),
+        colorSel('Above colour', 'flarmAbove'),
+        colorSel('Near colour', 'flarmNear'),
+        colorSel('Below colour', 'flarmBelow'),
+        spin('Lost device after', 'flarmLostAfter', 10, 600, 10, (v) => v + ' s', { coarse: 6 }),
+        Object.assign({ type: 'select', label: 'Show labels', options: ['all', 'near', 'none'], show: (v) => ({ all: 'All objects', near: 'Near objects only', none: 'None' }[v]) }, bind('flarmLabels')),
+        spin('Symbol size', 'flarmSymbolSize', 6, 20, 1, (v) => v + ' px'),
+        Object.assign({ type: 'select', label: 'Show paths', options: ['off', 'all'], show: (v) => (v === 'all' ? 'All objects' : 'None') }, bind('trafficPaths')),
+        check('', 'showPcas', 'Show PCAS'),
+      ],
+    });
+  }
+
+  /* --------------------------------------------------- Setup > Graphics > Misc. (7.1.7.10) */
+  function miscLook(scr) {
+    return new FormView(scr, {
+      title: 'Misc.',
+      fields: [
+        spin('Statistics thermals count', 'thermalsCount', 2, 8, 1, (v) => String(v)),
+        spin('Button timeout', 'buttonTimeout', 3, 30, 1, (v) => v + ' s'),
+        spin('Message font size', 'msgFont', 11, 24, 1, (v) => v + ' px'),
+        section('No button proximity / button font size: no touch hardware.'),
+      ],
+    });
+  }
+
+  /* ------------------------------------------- Setup > Graphics > Airspace (7.1.7.3) */
+  function airspaceLook(scr) {
+    const AS_DEFAULT = { zoom: 1000, color: '#ff3b30', width: 2, alpha: 22 };
+    const TYPES = LX.Map.AIRSPACE_TYPES.concat('other');
+    const cur = () => Object.assign({}, AS_DEFAULT, (S().get().airspaceStyle || {})[S().get().airspaceType]);
+    const put = (patch) => { const all = Object.assign({}, S().get().airspaceStyle || {}); all[S().get().airspaceType] = Object.assign(cur(), patch); S().set({ airspaceStyle: all }); };
+    return new FormView(scr, {
+      title: 'Airspace',
+      live: true,
+      fields: [
+        check('', 'showAirspace', 'Show airspace'),
+        spin('Show only airspace below', 'airspaceBelow', 0, 12000, 100, (v) => (v ? num(U().alt(v), 0) + ' ' + U().label('alt') : 'all'), { coarse: 10 }),
+        Object.assign({ type: 'select', label: 'Type', options: TYPES, show: (v) => (v === 'other' ? 'Other / unknown' : 'Class / type ' + v) }, bind('airspaceType')),
+        { type: 'spin', label: 'Zoom (visible up to)', min: 10, max: 1000, step: 10, coarse: 5, get: () => cur().zoom, set: (v) => put({ zoom: v }), fmt: (v) => (v >= 1000 ? 'always' : v + ' km') },
+        { type: 'select', label: 'Colour', options: Object.keys(COLORS), show: (v) => COLORS[v] || v, get: () => cur().color, set: (v) => put({ color: v }) },
+        { type: 'spin', label: 'Width', min: 1, max: 6, step: 1, coarse: 1, get: () => cur().width, set: (v) => put({ width: v }), fmt: (v) => v + ' px' },
+        { type: 'spin', label: 'Opacity', min: 0, max: 100, step: 5, coarse: 4, get: () => cur().alpha, set: (v) => put({ alpha: v }), fmt: (v) => v + '%' },
+        section('Settings apply to the selected type. No inactive zones / NOTAMs / separate side-view styles.'),
+      ],
+      buttons: { 6: { label: 'DEFAULT', run: () => { const all = Object.assign({}, S().get().airspaceStyle || {}); delete all[S().get().airspaceType]; S().set({ airspaceStyle: all }); } } },
+    });
+  }
+
+  /* ------------------------------ Setup > Graphics > Waypoints and Airports (7.1.7.4) */
+  function waypointLook(scr) {
+    const KINDS = ['none', 'name', 'code', 'elev', 'arrival', 'required', 'reqMc', 'reqLD', 'freq'];
+    const KN = { none: 'None', name: 'Name', code: 'Code', elev: 'Elevation', arrival: 'Arrival altitude', required: 'Required altitude', reqMc: 'Required Mc', reqLD: 'Required L/D', freq: 'Frequency' };
+    return new FormView(scr, {
+      title: 'Waypoints and Airports',
+      fields: [
+        check('', 'showWaypoints', 'Show waypoints'),
+        spin('Max. visible', 'wptMax', 10, 300, 10, (v) => String(v), { coarse: 5 }),
+        spin('Symbol size', 'wptSize', 3, 12, 1, (v) => v + ' px'),
+        Object.assign({ type: 'select', label: 'Upper label', options: KINDS, show: (v) => KN[v] }, bind('wptUpper')),
+        Object.assign({ type: 'select', label: 'Lower label', options: KINDS, show: (v) => KN[v] }, bind('wptLower')),
+        check('', 'wptSingle', 'Single label (one line)'),
+        check('', 'wptColorize', 'Colorize label (green: reachable at Mc, yellow: at Mc 0)'),
+        spin('Min. runway length', 'minRwLen', 0, 2000, 50, (v) => (v ? num(v, 0) + ' m' : 'off'), { coarse: 4 }),
+        section('Arrival / required altitude use the safety Mc and the wind; no wind profile. Short runways get a red cross. Labels per waypoint type and runway width are not supported.'),
+      ],
+    });
+  }
+
+  /* ------------------------------------------------- Setup > Graphics > Weather (7.1.7.2) */
+  function weatherSetup(scr, ctx) {
+    const wx = ctx.weather;
+    if (!wx.satLayers) wx.loadSatLayers();
+    const satOpts = ['']; // filled in place, also when the list arrives after the form was opened
+    const fillSat = () => { satOpts.length = 1; wx.satOptions(S().get().wxSatAll).forEach((n) => satOpts.push(n)); };
+    fillSat();
+    wx.onSatLayers = fillSat;
+    const status = (k) => info('', () => wx.status[k], { wide: true });
+    return new FormView(scr, {
+      title: 'Weather',
+      live: true,
+      fields: [
+        section('Satellite (EUMETSAT Meteosat)'),
+        check('', 'wxSat', 'Show satellite layer'),
+        Object.assign({ type: 'select', label: 'Layer', options: satOpts, wide: true, show: (v) => (v ? LX.Weather.describeSat(v).label : 'Automatic (' + (wx.satLayerName(S().get()) ? LX.Weather.describeSat(wx.satLayerName(S().get())).label : 'loading') + ')') }, bind('wxSatLayer')),
+        info('', () => { const n = wx.satLayerName(S().get()); return n ? LX.Weather.describeSat(n).desc : 'Loading the layer list...'; }, { wide: true }),
+        Object.assign({ type: 'check', label: '', text: 'All layers (advanced)', get: () => S().get().wxSatAll, set: (v) => { S().set({ wxSatAll: v }); fillSat(); } }),
+        spin('Opacity', 'wxSatOpacity', 10, 100, 10, (v) => v + '%', { coarse: 2 }),
+        status('sat'),
+        section('Forecast (Open-Meteo, coarse grid)'),
+        check('', 'wxFc', 'Show forecast layer'),
+        Object.assign({ type: 'select', label: 'Parameter', options: ['cloud_cover', 'cape', 'boundary_layer_height', 'precipitation'], show: (v) => ({ cloud_cover: 'Cloud cover', cape: 'CAPE (convective energy)', boundary_layer_height: 'Boundary layer height (thermal depth)', precipitation: 'Precipitation' }[v]), wide: true }, bind('wxFcParam')),
+        spin('Forecast time', 'wxFcOffset', 0, 24, 1, (v) => (v ? '+' + v + ' h' : 'now'), { coarse: 3 }),
+        spin('Opacity', 'wxFcOpacity', 10, 100, 10, (v) => v + '%', { coarse: 2 }),
+        status('fc'),
+        section('Rain radar (RainViewer)'),
+        check('', 'wxRain', 'Show rain radar'),
+        spin('Opacity', 'wxRainOpacity', 10, 100, 10, (v) => v + '%', { coarse: 2 }),
+        spin('History span', 'wxRainHistory', 0, 120, 10, (v) => (v ? v + ' min (animated)' : 'off'), { coarse: 3 }),
+        spin('Freeze present time', 'wxRainFreeze', 0, 10, 1, (v) => v + ' s'),
+        status('rain'),
+        section('All layers'),
+        info('Map tiles', () => LX.Map.rasterStats.loaded + ' loaded, ' + LX.Map.rasterStats.failed + ' failed (a high failed count means the service refused or is slow)', { wide: true }),
+        Object.assign({ type: 'select', label: 'Minimum zoom distance', options: [0].concat(LX.Map.ZOOMS), show: (v) => (v ? 'map scale ' + v + ' km or wider' : 'always visible') }, bind('wxMinScale')),
+        info('Map now', () => 'scale bar ' + LX.Map.ZOOMS[S().get().mapZoom] + ' km (the weather layers show at the chosen step and wider)', { wide: true }),
+        section('Free services, no account. They need internet and are for training only, never for flight planning.'),
+      ],
+    });
+  }
+
+  /* ----------------------------------------------------------- Setup > Graphics */
+  function graphics(scr, ctx) {
+    return new MenuView(scr, [
+      { label: 'Map and Terrain', color: '#7ee07e', run: (s) => s.open(mapAndTerrain(s)) },
+      { label: 'Airspace', color: '#ff5a4a', run: (s) => s.open(airspaceLook(s)) },
+      { label: 'Waypoints and Airports', color: '#5fd0ff', run: (s) => s.open(waypointLook(s)) },
+      { label: 'Glider and Track', color: '#ffb000', run: (s) => s.open(gliderTrack(s)) },
+      { label: 'Thermal Mode', color: '#ff9a1f', run: (s) => s.open(thermalModeSetup(s)) },
+      { label: 'Optimization', color: '#ffd400', run: (s) => s.open(optimizationLook(s)) },
+      { label: 'Task', color: '#ff2fd5', run: (s) => s.open(taskLook(s)) },
+      { label: 'FLARM', color: '#5fd0ff', run: (s) => s.open(flarmLook(s)) },
+      { label: 'Weather', color: '#5fd0ff', run: (s) => s.open(weatherSetup(s, ctx)) },
+      { label: 'Misc.', color: '#8a8f99', run: (s) => s.open(miscLook(s)) },
+    ], { title: 'Graphics' });
   }
 
   function display(scr) {
@@ -349,7 +676,7 @@
       ['Vario Parameters', '#7ee07e', (s) => s.open(varioParams(s))],
       ['Display', '#5fd0ff', (s) => s.open(LX.setup2.display(s))],
       ['Files and Transfer', '#ffd400', (s) => s.open(LX.filesUI.filesRoot(s, ctx))],
-      ['Graphics', '#ffb000', (s) => s.open(graphics(s))],
+      ['Graphics', '#ffb000', (s) => s.open(graphics(s, ctx))],
       ['Sounds', '#ffb000', (s) => s.open(soundsMenu(s, ctx))],
       ['Observation Zones', '#ff5a4a', (s) => s.open(LX.setup2.observationZones(s))],
       ['Optimization', '#8fb6ff', (s) => s.open(optimization(s))],
@@ -374,13 +701,7 @@
       autoClose: 10000,
       fields: [
         spin('MacCready', 'mc', 0, 5, 0.1, (v) => num(U().vario(v), 1) + ' ' + U().label('vario')),
-        {
-          type: 'spin', label: 'Ballast', min: 0, step: 5, coarse: 4,
-          get: () => S().get().ballast,
-          set: (v) => S().set({ ballast: Math.min(v, LX.polar.GLIDERS[S().get().glider].maxBallast) }),
-          get max() { return LX.polar.GLIDERS[S().get().glider].maxBallast; },
-          fmt: (v) => v + ' kg',
-        },
+        LX.ballastField('Ballast'),
         spin('Bugs', 'bugs', 0, 30, 1, (v) => v + '%'),
         info('Glide ratio at Mc', () => { const n = ctx.flight.navTo(ctx.nav.target('tsk')); return n ? `${num(n.Emc, 0)} @ ${num(U().speed(n.stfFG), 0)} ${U().label('speed')}` : '---'; }),
         info('Speed to fly now', () => `${num(U().speed(ctx.flight.f.stf), 0)} ${U().label('speed')}`),
@@ -407,7 +728,7 @@
     });
   }
 
-  function mapDialog(scr, ctx) { return graphics(scr); }
+  function mapDialog(scr, ctx) { return mapAndTerrain(scr); }
 
   function airspaceList(scr, ctx) {
     const f = ctx.flight.f;
@@ -470,5 +791,5 @@
     });
   }
 
-  LX.setup = { layoutDialog, setupRoot, mcDialog, windDialog, mapDialog, airspaceList, flarmList, targetList, volumes };
+  LX.setup = { weather: weatherSetup, polarGlider, layoutDialog, setupRoot, mcDialog, windDialog, mapDialog, airspaceList, flarmList, targetList, volumes };
 })(window);

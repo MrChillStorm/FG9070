@@ -98,7 +98,7 @@
     const end = () => { drag = null; };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
-    el.addEventListener('wheel', (e) => { e.preventDefault(); turn(name, e.deltaY > 0 ? 1 : -1); }, { passive: false });
+    el.addEventListener('wheel', (e) => { e.preventDefault(); const st = dev.wheelStep(e); if (st) turn(name, st); }, { passive: false });
   });
 
   /* ---------------------------------------------------------------- buttons */
@@ -144,6 +144,23 @@
     else used = false;
     if (used) e.preventDefault();
   });
+
+  /**
+   * Wheel / trackpad input -> detent steps. A mouse wheel click is about 100 px; a trackpad swipe is a burst of many
+   * small events (plus inertia), so movement is accumulated and turned into at most one step per 180 ms.
+   * Returns -1, 0 or +1 (sign of the scroll direction).
+   */
+  let wheelAcc = 0, wheelLast = 0, wheelStepAt = 0;
+  dev.wheelStep = (e) => {
+    const now = performance.now();
+    if (now - wheelLast > 300) wheelAcc = 0; // a new gesture
+    wheelLast = now;
+    wheelAcc += e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
+    if (Math.abs(wheelAcc) < 60 || now - wheelStepAt < 180) return 0;
+    const dir = wheelAcc > 0 ? 1 : -1;
+    wheelAcc = 0; wheelStepAt = now;
+    return dir;
+  };
 
   function pulse(index) {
     const el = $(`[data-btn="${index}"]`);

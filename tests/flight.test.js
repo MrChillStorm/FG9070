@@ -72,3 +72,60 @@ console.log('flight tests passed');
   assert.strictEqual(lt.call({ thermals: [] }), null);
   assert.strictEqual(lt.call({ thermals: [{ avg: 1 }, { avg: 3 }, { avg: 2.4 }] }), 2.4);
 }
+
+// Netto filter time constant (manual 7.1.4): a larger constant reacts more slowly
+{
+  const run = (nettoTau) => {
+    const t = new LX.TEVario(); let ms = 0, o;
+    for (let i = 0; i < 20; i++) { o = t.update(ms, 0, 30, 0.7, 1.5, 1, nettoTau); ms += 100; }       // still air: netto ~ 0.7
+    for (let i = 0; i < 10; i++) { o = t.update(ms, 2, 30, 0.7, 1.5, 1, nettoTau); ms += 100; }       // step into lift for 1 s
+    return o.netto;
+  };
+  assert.ok(run(0.2) > run(5), 'short netto filter follows a step faster than a long one');
+  assert.strictEqual(typeof new LX.TEVario().update(0, 0, 30, 0.7, 1.5, 1).raw, 'number', 'old call form still works');
+}
+
+// --- distance calculation method (manual 7.1.11): FAI sphere vs WGS84 ellipsoid
+{
+  const fl = [-37.9510334167, 144.4248678889], bu = [-37.6528211389, 143.9264955278]; // Geoscience Australia Vincenty test line
+  const e = LX.geo.ellipsoidDist(fl[0], fl[1], bu[0], bu[1]);
+  assert.ok(Math.abs(e - 54972.271) < 0.01, 'Vincenty reference: ' + e);
+  assert.ok(Math.abs(LX.geo.ellipsoidDist(0, 0, 0, 1) - 111319.49) < 0.5, 'one degree of equator');
+  assert.strictEqual(LX.geo.ellipsoidDist(10, 10, 10, 10), 0);
+  LX.geo.setMethod('fai');
+  const s = LX.geo.dist(0, 0, 0, 1);
+  assert.ok(Math.abs(s - 111194.93) < 0.5, 'FAI sphere degree: ' + s);
+  LX.geo.setMethod('wgs84');
+  assert.ok(Math.abs(LX.geo.dist(0, 0, 0, 1) - 111319.49) < 0.5, 'dist() follows the method');
+  LX.geo.setMethod('fai');
+}
+
+// --- ballast entered as wing loading
+{
+  const s = { wbEmpty: 400, wbPilot: 80, wbCopilot: 0, wbChute: 8, wbArea: 17.5, ballast: 100 };
+  assert.ok(Math.abs(LX.polar.wingLoading(s) - 588 / 17.5) < 1e-9);
+  assert.strictEqual(LX.polar.ballastFromLoad(s, 588 / 17.5, 200), 100);
+  assert.strictEqual(LX.polar.ballastFromLoad(s, 10, 200), 0, 'below dry mass clamps to 0');
+  assert.strictEqual(LX.polar.ballastFromLoad(s, 99, 200), 200, 'above max clamps');
+}
+console.log('geo/ballast ok');
+
+// --- user gliders (manual 7.1.13)
+{
+  LX.polar.setUser({ u1: Object.assign(LX.polar.copyOf('club15'), { stall: 70, vne: 220, flaps: [{ label: 'L', vmin: 80, vmax: 120 }], dump: [[100, 10], [200, 20]] }) });
+  assert.ok(LX.polar.isUser('u1') && !LX.polar.isUser('ask21'));
+  assert.deepStrictEqual(LX.polar.ids().slice(-1), ['u1']);
+  const base = LX.polar.make('club15', 0, 0), cp = LX.polar.make('u1', 0, 0, 350);
+  [80, 115, 170].forEach((kmh) => assert.ok(Math.abs(base.sink(kmh / 3.6) - cp.sink(kmh / 3.6)) < 1e-6, 'copy keeps the polar at ' + kmh));
+  const heavy = LX.polar.make('u1', 0, 0, 490);
+  assert.ok(Math.abs(heavy.k - Math.sqrt(490 / 350)) < 1e-9 && heavy.mass === 490, 'scaled by total weight');
+  assert.ok(Math.abs(heavy.stall - 70 / 3.6 * heavy.k) < 1e-9 && heavy.maxSpeed === 220 / 3.6);
+  assert.strictEqual(LX.polar.make('club15', 100, 0, 999).mass, 450, 'built-ins ignore total weight');
+  assert.strictEqual(LX.polar.suggestFlap(LX.polar.glider('u1'), 100 / 3.6, 1, 350), 'L');
+  assert.strictEqual(LX.polar.suggestFlap(LX.polar.glider('u1'), 200 / 3.6, 1, 350), null);
+  const t = LX.polar.dumpTime(LX.polar.glider('u1'), 100);
+  assert.ok(t > 500 && t < 700, 'dump time ~10 l/min for 100 kg: ' + t);
+  LX.polar.setUser({});
+  assert.strictEqual(LX.polar.glider('u1').name, 'ASK 21', 'unknown id falls back');
+}
+console.log('user glider ok');

@@ -40,7 +40,7 @@
     }
 
     reset() {
-      this.te.reset();
+      this.te.reset(); this._lps = {}; this.turnAcc = 0; this._ctT = 0;
       this.have = false;
       this.seq = 0;
       this.lastPos = null; // { t, lat, lon }
@@ -64,7 +64,7 @@
         mode: 'sc', // 'sc' cruise | 'vario' climb
         stf: 0, stfDelta: 0, sinkNow: 0,
         circling: false, turnRate: 0,
-        nav: null, flightTime: 0, flying: false,
+        nav: null, flightTime: 0, flying: false, magvar: 0,
         glideRatioNow: Infinity, gForce: 1,
       };
     }
@@ -72,9 +72,10 @@
     /** Polar for the current glider / ballast / bugs settings (cached). */
     getPolar() {
       const s = this.S.get();
-      const key = `${s.glider}|${s.ballast}|${s.bugs}`;
+      const total = s.wbEmpty + s.wbPilot + s.wbCopilot + s.wbChute + s.ballast;
+      const key = `${s.glider}|${s.ballast}|${s.bugs}|${LX.polar.version}|${LX.polar.isUser(s.glider) ? total : ''}`;
       if (key !== this.polarKey) {
-        this.polar = LX.polar.make(s.glider, s.ballast, s.bugs);
+        this.polar = LX.polar.make(s.glider, s.ballast, s.bugs, total);
         this.polarKey = key;
       }
       return this.polar;
@@ -100,6 +101,8 @@
       f.pitch = num(v.pitch, f.pitch);
       f.roll = num(v.roll, f.roll);
       f.windDir = num(v.wdir, f.windDir);
+      f.magvar = num(v.magvar, f.magvar);
+      f.oat = Number.isFinite(v.oat) ? v.oat : null; // null: no outside temperature from the simulator -> ISA model
       f.windSpd = num(v.wspd * KT, f.windSpd);
       if (Number.isFinite(v.qnh)) f.qnhSim = v.qnh * LX.util.INHG_TO_HPA;
       if (Number.isFinite(v.gelev)) f.gelev = v.gelev;
@@ -136,12 +139,14 @@
       const vSrc = s.teSource === 'tas' ? f.tas : f.ias;
       const sinkNow = polar.sink(f.ias);
       f.sinkNow = sinkNow;
-      const o = this.te.update(tMs, f.vs, vSrc, sinkNow, s.needleTau, s.teComp / 100);
+      const o = this.te.update(tMs, f.vs, vSrc, sinkNow, s.needleTau, s.teComp / 100, s.nettoFilter);
       f.teRaw = o.raw;
       f.te = o.te;
       f.teFast = o.fast; // audio uses its own filter below
       f.netto = o.netto;
-      f.relative = o.netto;
+      // Relative (super netto) and the speed-to-fly input have their own filters (Setup > Vario Parameters)
+      f.relative = this._lp('rel', o.nettoInst === undefined ? o.netto : o.nettoInst, tMs, s.relTau);
+      const nettoSC = this._lp('sc', o.nettoInst === undefined ? o.netto : o.nettoInst, tMs, s.scTau);
       f.teSound = this._soundFilter(o.raw, tMs, s.soundTau);
       this.avgVario.w = s.integrator * 1000;
       this.avgNetto.w = s.nettoTime * 1000;
@@ -155,7 +160,7 @@
 
       // --- MacCready speed to fly (uses netto as air movement, SC filtered)
       const hw = this._headwindAlong(f.track);
-      f.stf = LX.polar.speedToFly(polar, s.mc, clamp(f.netto, -3, 3), hw);
+      f.stf = LX.polar.speedToFly(polar, s.mc, clamp(nettoSC, -3, 3), hw);
       f.stfDelta = f.ias - f.stf;
 
       // --- target navigation + final glide
@@ -166,6 +171,17 @@
 
       this.seq++;
       return f;
+    }
+
+    /** First-order low-pass with its own state per key (time constant tau in s). */
+    _lp(key, x, t, tau) {
+      const st = this._lps || (this._lps = {});
+      const p = st[key];
+      if (!p) { st[key] = { v: x, t }; return x; }
+      const dt = Math.max(0, (t - p.t) / 1000);
+      p.t = t;
+      p.v += (x - p.v) * (1 - Math.exp(-dt / Math.max(0.05, tau || 0.05)));
+      return p.v;
     }
 
     /* ------------------------------------------------------------------ sound */
@@ -181,6 +197,9 @@
     _circling(t, s) {
       const f = this.f;
       const fast = Math.abs(this.turnRate) > 6; // deg/s
+      const dtc = this._ctT ? Math.min(1, (t - this._ctT) / 1000) : 0; this._ctT = t;
+      this.turnAcc = fast ? (this.turnAcc || 0) + Math.abs(this.turnRate) * dtc : 0; // degrees turned since the turn began
+      f.turnAngle = this.turnAcc;
       if (fast) {
         this.straightSince = null;
         if (this.circlingSince === null) this.circlingSince = t;
@@ -227,6 +246,7 @@
       const dur = (t - th.t0) / 1000;
       if (dur > 25) {
         const gain = f.alt - th.alt0;
+        if (!this.soaringStart) this.soaringStart = { lat: th.lat, lon: th.lon }; // where soaring began (airport select > favourites)
         this.thermals.push({ t0: th.t0, t1: t, alt0: th.alt0, alt1: f.alt, gain, avg: gain / dur, dur, lat: th.lat, lon: th.lon });
         if (this.thermals.length > 30) this.thermals.shift();
       }
@@ -325,11 +345,13 @@
         this.maxAlt = f.alt;
         this.landedSince = null;
         this.thermals = [];
+        this.soaringStart = null;
       }
       if (this.flying) {
         this.maxAlt = Math.max(this.maxAlt, f.alt);
         if (f.gs < 3 && f.ias < 8) {
-          if (this.landedSince === null) this.landedSince = t;
+          if (this.landedSince === null) { this.landedSince = t; this.landNote = 0; if (this.onNote && t - this.flightStart > 60000) this.onNote('Flight will finish in 10 seconds'); }
+          else if (this.landNote === 0 && t - this.landedSince > 7000) { this.landNote = 1; if (this.onNote && t - this.flightStart > 60000) this.onNote('Calculating security!'); } // 11.3
           if (t - this.landedSince > 10000 && t - this.flightStart > 60000) this._landed(t, f);
         } else this.landedSince = null;
       }

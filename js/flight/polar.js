@@ -54,18 +54,70 @@
     return [det(col(0)) / D, det(col(1)) / D, det(col(2)) / D];
   }
 
-  /** Build a polar object for the current settings. */
-  function make(id, ballastKg, bugsPct) {
-    const g = GLIDERS[id] || GLIDERS.ask21;
-    const [a, b, c] = fit(g.pts);
-    const k = Math.sqrt((g.mass + Math.max(0, ballastKg || 0)) / g.mass);
+  /* User gliders (manual 7.1.13): up to MAX_USER stored gliders, each
+   *   { name, a, b, c, mass, maxBallast, stall, vne, flaps:[{label,vmin,vmax}], dump:[[kg, l/min]] }
+   * The polar is w = a v^2 + b v + c with v in km/h and w in m/s (the form LX-Polar prints); mass is the reference
+   * weight in kg. A user glider is scaled by the actual total weight (empty + crew + chute + ballast). */
+  const MAX_USER = 3;
+  let USER = {};
+  let version = 0;
+  function setUser(obj) { USER = obj || {}; version++; }
+  function glider(id) { return GLIDERS[id] || USER[id] || GLIDERS.ask21; }
+  function isUser(id) { return !GLIDERS[id] && !!USER[id]; }
+  function ids() { return Object.keys(GLIDERS).concat(Object.keys(USER)); }
+  function abcKmh(g) {
+    if (g.a !== undefined) return [g.a, g.b, g.c];
+    const [A, B, C] = fit(g.pts); // m/s based
+    return [A / 12.96, B / 3.6, C];
+  }
+  /** A new editable glider copied from an existing one. */
+  function copyOf(id) {
+    const g = glider(id), [a, b, c] = abcKmh(g);
+    return { name: g.name + ' (copy)', a, b, c, mass: g.mass, maxBallast: g.maxBallast, stall: 70, vne: 250, flaps: [], dump: [[g.maxBallast || 100, 20]] };
+  }
+
+  /** Build a polar object for the current settings. totalKg: actual weight, used for user gliders only. */
+  function make(id, ballastKg, bugsPct, totalKg) {
+    const g = glider(id);
+    const [ka, kb, kc] = abcKmh(g);
+    const a = ka * 12.96, b = kb * 3.6, c = kc; // per m/s
+    const user = isUser(id);
+    const weight = user && totalKg > 0 ? totalKg : g.mass + Math.max(0, ballastKg || 0);
+    const k = Math.sqrt(weight / g.mass);
     const bug = 1 + (bugsPct || 0) / 100;
     // Ballasted polar: w'(v) = k * w(v / k); sink magnitude then scaled by bugs.
     const sink = (v) => {
       const x = v / k;
       return Math.max(0.05, (a * x * x + b * x + c) * k * bug);
     };
-    return { id, name: g.name, sink, k, mass: g.mass + (ballastKg || 0), minSpeed: 60 / 3.6, maxSpeed: 250 / 3.6 };
+    const stall = user && g.stall ? (g.stall / 3.6) * k : 0; // stall speed rises with sqrt(weight)
+    return {
+      id, name: g.name, sink, k, mass: weight, stall,
+      minSpeed: Math.max(60 / 3.6, stall), maxSpeed: user && g.vne ? g.vne / 3.6 : 250 / 3.6,
+    };
+  }
+
+  /** Seconds needed to dump `kg` of water with the glider's dump table (linear between points, last rate beyond). */
+  function dumpTime(g, kg) {
+    const pts = (g.dump || []).filter((p) => p[1] > 0).sort((x, y) => x[0] - y[0]);
+    if (!pts.length || kg <= 0) return 0;
+    const rate = (m) => { // litres per minute at amount m (1 l = 1 kg)
+      if (m <= pts[0][0]) return pts[0][1];
+      for (let i = 1; i < pts.length; i++) if (m <= pts[i][0]) return pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * (m - pts[i - 1][0]) / (pts[i][0] - pts[i - 1][0]);
+      return pts[pts.length - 1][1];
+    };
+    let m = kg, t = 0;
+    while (m > 0) { const r = Math.max(0.5, rate(m)); const d = Math.min(m, 1); t += d / r * 60; m -= d; }
+    return t;
+  }
+
+  /** Suggested flap label for the current airspeed (m/s IAS), load factor and mass (manual 7.1.13.2). */
+  function suggestFlap(g, ias, nz, mass) {
+    if (!g.flaps || !g.flaps.length) return null;
+    const scale = Math.sqrt(Math.max(0.2, nz || 1) * (mass || g.mass) / g.mass); // speeds in the table are for the reference weight
+    const v = ias * 3.6 / scale;
+    const hit = g.flaps.filter((f) => v >= f.vmin && v <= f.vmax)[0];
+    return hit ? hit.label : null;
   }
 
   /** Speed (m/s) of minimum sink and of best glide in still air. */
@@ -118,5 +170,15 @@
     return { v, ground: gs, sink, heightNeeded, arrivalHeight: arrival, ratio: gs / Math.max(0.01, sink), time: t };
   }
 
-  LX.polar = { GLIDERS, fit, make, characteristics, speedToFly, finalGlide };
+  /* Ballast can be entered as water weight (kg) or as the resulting wing loading (kg/m2) (manual 7.1.11). */
+  function wingLoading(s) { return (s.wbEmpty + s.wbPilot + s.wbCopilot + s.wbChute + s.ballast) / s.wbArea; }
+  function ballastFromLoad(s, load, maxBallast) {
+    const dry = s.wbEmpty + s.wbPilot + s.wbCopilot + s.wbChute;
+    return Math.round(Math.max(0, Math.min(maxBallast, load * s.wbArea - dry)));
+  }
+
+  LX.polar = {
+    GLIDERS, MAX_USER, fit, make, characteristics, speedToFly, finalGlide, wingLoading, ballastFromLoad,
+    setUser, glider, isUser, ids, copyOf, abcKmh, dumpTime, suggestFlap, get version() { return version; },
+  };
 })(window);

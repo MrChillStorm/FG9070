@@ -30,6 +30,7 @@
 
   const ctx = {
     settings, flight, nav, audio, traffic, runner, warnings, recorder, dem,
+    weather: new LX.Weather(settings),
     history: [], flownDist: 0, ref: null, events: 0, rate: 0,
     srcStatus: { mode: 'idle', message: '', hz: 0 },
     sampleWall: 0,
@@ -107,7 +108,7 @@
   screen.addMode({ id: 'tsk', name: 'Task', pages: navPages('tsk') });
   screen.addMode({ id: 'stat', name: 'Statistics', pages: ['general', 'task', 'olc'].map((k) => new LX.StatsView(screen, ctx, k)) });
   screen.addMode({ id: 'setup', name: 'Setup', pages: [LX.setup.setupRoot(screen, ctx)] });
-  screen.addMode({ id: 'info', name: 'Information', pages: [LX.info.gpsPage(screen, ctx), LX.info.reportPage(screen, ctx)] });
+  screen.addMode({ id: 'info', name: 'Information', pages: [LX.info.gpsPage(screen, ctx), LX.info.reportPage(screen, ctx), LX.info.skyPage(screen, ctx), LX.info.networkPage(screen, ctx)] });
   screen.addMode({ id: 'near', name: 'Near', pages: [new LX.NearView(screen, ctx)] });
   screen.modeIdx = 2; // Task mode, like a unit with a declared task
   screen.start();
@@ -181,7 +182,11 @@
     if (s.transport === 'demo' && flight.have === false) { /* ref is set on first sample */ }
   }
 
+  LX.geo.setMethod(settings.get().distMethod);
+  LX.polar.setUser(settings.get().gliders);
   settings.onChange((s, changed) => {
+    if (changed.indexOf('distMethod') >= 0) LX.geo.setMethod(s.distMethod);
+    if (changed.indexOf('gliders') >= 0) LX.polar.setUser(s.gliders);
     if (changed.some((k) => ['host', 'port', 'transport', 'hz', 'trafficSource'].indexOf(k) >= 0)) connect();
     if (changed.indexOf('orientation') >= 0) screen.resize();
   });
@@ -204,8 +209,18 @@
         // announcements
         const n = flight.navTo(nav.target('tsk'));
         if (n) {
-          if (prevArr !== null && prevArr < 0 && n.arrival >= 0) { LX.speech.say('Final glide reached'); if (ctx.settings.get().alarmFinalGlide) audio.playAlarm(); }
+          if (prevArr !== null && prevArr < 0 && n.arrival >= 0) {
+            LX.speech.say('Final glide reached');
+            if (nav.task.length && nav.started && !nav.finished) screen.toast('Task on final glide!', 3500); // 11.2.6
+            if (ctx.settings.get().alarmFinalGlide) audio.playAlarm();
+          }
           prevArr = n.arrival;
+          // two minutes before the finish (11.2.6)
+          if (nav.task.length && nav.started && !nav.finished) {
+            const left = LX.TaskTools.remaining(nav, flight.f) / Math.max(5, flight.f.gs);
+            if (left < 120 && left > 0 && !ctx._finWarn) { ctx._finWarn = true; screen.toast('Finish in 2 minutes', 4000); }
+            if (left > 150) ctx._finWarn = false;
+          } else ctx._finWarn = false;
         }
         if (flight.thermals.length > prevThermals) {
           const t = flight.thermals[flight.thermals.length - 1];
@@ -219,8 +234,8 @@
         const h = ctx.history, f = flight.f;
         if (h.length) ctx.flownDist += geo.dist(h[h.length - 1][0], h[h.length - 1][1], f.lat, f.lon);
         if (!ctx.flightStart) ctx.flightStart = { lat: f.lat, lon: f.lon };
-        h.push([f.lat, f.lon]);
-        if (h.length > 1500) h.shift();
+        h.push([f.lat, f.lon, f.alt, f.te, f.gs]); // + altitude, vario, ground speed for the path colouring styles
+        if (h.length > 5400) h.shift(); // 3 h at one point per 2 s
       }
     }
     if (flight.have) recorder.tick(flight.f, flight.flying, now);
@@ -237,6 +252,7 @@
   }
 
   // The demo flies before anyone is "flying" (gs threshold); make the track appear promptly.
+  flight.onNote = (text) => screen.toast(text, 3500);
   flight.onLanded = (rec) => { recorder.end({ thermals: rec.thermals }); };
   recorder.load();
   LX.filesUI.enableDrop(screen, ctx);

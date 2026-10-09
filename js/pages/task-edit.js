@@ -32,17 +32,26 @@
   };
 
   /* --------------------------------------------------------- waypoint editor */
-  function editWaypoint(scr, ctx, wp, isNew) {
+  function editWaypoint(scr, ctx, wp, isNew, direct) {
     const open = (src) => {
-      const w = Object.assign({ name: '', code: '', lat: ctx.flight.f.lat, lon: ctx.flight.f.lon, elev: Math.round(ctx.flight.f.alt), type: 'tp' }, src || {});
+      const w = Object.assign({ name: '', code: '', lat: ctx.flight.f.lat, lon: ctx.flight.f.lon, elev: Math.round(ctx.groundElev(ctx.flight.f)), type: 'tp' }, src || {});
+      let elevSet = false;
       const fields = [
         { type: 'action', label: 'Name', text: w.name || '(enter)', wide: true, run: (s, form) => { const v = global.prompt('Waypoint name', w.name); if (v) { w.name = v.trim(); form.fields[0].text = w.name; } } },
         { type: 'spin', label: 'Latitude', min: -90, max: 90, step: 0.0001, coarse: 100, get: () => w.lat, set: (v) => (w.lat = v), fmt: (v) => v.toFixed(4) + '°' },
         { type: 'spin', label: 'Longitude', min: -180, max: 180, step: 0.0001, coarse: 100, get: () => w.lon, set: (v) => (w.lon = v), fmt: (v) => v.toFixed(4) + '°' },
-        { type: 'spin', label: 'Elevation', min: -400, max: 6000, step: 1, coarse: 50, get: () => w.elev, set: (v) => (w.elev = v), fmt: (v) => num(U().alt(v), 0) + ' ' + U().label('alt') },
+        { type: 'spin', label: 'Elevation', min: -400, max: 6000, step: 1, coarse: 50, get: () => w.elev, set: (v) => { w.elev = v; elevSet = true; }, fmt: (v) => num(U().alt(v), 0) + ' ' + U().label('alt') },
         { type: 'select', label: 'Type', options: ['tp', 'airport', 'glider', 'field', 'mark'], get: () => w.type, set: (v) => (w.type = v), show: (v) => ({ tp: 'Turn point', airport: 'Airport', glider: 'Glider site', field: 'Outlanding field', mark: 'Marked position' }[v]) },
         { type: 'spin', label: 'Runway length', min: 0, max: 5000, step: 10, coarse: 10, get: () => w.rwLen || 0, set: (v) => (w.rwLen = v), fmt: (v) => v + ' m' },
       ];
+      const save = (s, go) => {
+        if (!w.name) { s.toast('A name is required', 1500); return; }
+        if (isNew && !elevSet && !(src && src.elev)) w.elev = Math.round(ctx.groundElev(w)); // 7.6.1.2: elevation is assigned from the terrain once the position is entered
+        if (isNew) { w.code = w.code || w.name.slice(0, 4).toUpperCase(); ctx.nav.addWaypoint(w); ctx.nav.selected.wpt = w; }
+        else Object.assign(src, w);
+        s.close(); s.toast(isNew ? 'Waypoint created' : 'Waypoint updated', 1200);
+        if (go) { const t = isNew ? w : src; ctx.nav.selected.apt = t; ctx.goMode('apt'); }
+      };
       scr.open(new FormView(scr, {
         title: isNew ? 'New waypoint' : 'Edit waypoint',
         fields,
@@ -56,16 +65,13 @@
               w.lat = p.lat; w.lon = p.lon;
             }
           } },
-          6: { label: 'OK', run: (s) => {
-            if (!w.name) { s.toast('A name is required', 1500); return; }
-            if (isNew) { w.code = w.code || w.name.slice(0, 4).toUpperCase(); ctx.nav.addWaypoint(w); ctx.nav.selected.wpt = w; }
-            else Object.assign(src, w);
-            s.close(); s.toast(isNew ? 'Waypoint created' : 'Waypoint updated', 1200);
-          } },
+          6: { label: 'OK', run: (s) => save(s, false) },
+          7: { label: 'GOTO', run: (s) => save(s, true) },
         },
       }));
     };
-    if (isNew) {
+    if (isNew && direct) open(wp);
+    else if (isNew) {
       scr.open(new Popup(scr, 'New waypoint', 'Do you want to copy from airport?', {
         4: { label: 'NO', run: (s) => { s.close(); open(null); } },
         7: { label: 'YES', run: (s) => {

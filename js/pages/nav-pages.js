@@ -226,14 +226,73 @@
       return this._opt.pts;
     }
 
+    /** Per-waypoint glide numbers for the map labels (manual 7.1.7.4), computed lazily and only for labelled points. */
+    wptInfoFn(f, s) {
+      const flight = this.ctx.flight, pol = flight.getPolar(), mcSafe = Math.max(0, s.mc + s.mcOffset), cache = new Map();
+      return (w) => {
+        let q = cache.get(w);
+        if (q) return q;
+        const dist = geo.dist(f.lat, f.lon, w.lat, w.lon), hw = flight._headwindAlong(geo.bearing(f.lat, f.lon, w.lat, w.lon)), elev = w.elev || 0;
+        const fgAt = (mc) => LX.polar.finalGlide(pol, { mc, dist, alt: f.alt, targetElev: elev, safety: s.safetyAlt, headwind: hw });
+        const a = fgAt(mcSafe), a0 = fgAt(0);
+        let reqMc = NaN;
+        if (a0.arrivalHeight >= 0) { let lo = 0, hi = 5; for (let i = 0; i < 8; i++) { const mid = (lo + hi) / 2; if (fgAt(mid).arrivalHeight >= 0) lo = mid; else hi = mid; } reqMc = lo; }
+        const usable = f.alt - elev - s.safetyAlt;
+        q = { arrival: a.arrivalHeight, arrival0: a0.arrivalHeight, required: elev + s.safetyAlt + a.heightNeeded, reqMc, reqLD: usable > 0 ? dist / usable : Infinity };
+        cache.set(w, q);
+        return q;
+      };
+    }
+
+    /** Largest triangle of the recorded track (not necessarily FAI), recomputed every 10 s (manual 7.1.7.7: show optimized triangle). */
+    optTriangle() {
+      const h = this.ctx.history, now = performance.now();
+      if (h.length < 30) return null;
+      if (!this._tri || now - this._tri.t > 10000) {
+        const fixes = h.map((p, i) => [i * 2, p[0], p[1], 0]);
+        const r = LX.Optimizer.triangle(fixes, 70);
+        this._tri = { t: now, pts: r ? r.pts.map((p) => [p.lat, p.lon]) : null };
+      }
+      return this._tri.pts;
+    }
+
+    /** Glider range area (manual 7.1.7.5): outline of where final glide at the safety Mc reaches the safety altitude, once a second. */
+    glideRange(f, s) {
+      const now = performance.now();
+      if (this._ra && now - this._ra.t < 1000) return this._ra.ring;
+      const flight = this.ctx.flight, pol = flight.getPolar();
+      const usable = Math.max(0, f.alt - this.ctx.groundElev(f) - s.safetyAlt);
+      const mcSafe = Math.max(0, s.mc + s.mcOffset);
+      const ring = [];
+      for (let b = 0; b < 360; b += 10) {
+        const r = LX.polar.finalGlide(pol, { mc: mcSafe, dist: 1000, alt: f.alt, targetElev: 0, safety: 0, headwind: flight._headwindAlong(b) }).ratio * usable;
+        const p = geo.dest(f.lat, f.lon, b, r);
+        ring.push([p.lat, p.lon]);
+      }
+      this._ra = { t: now, ring };
+      return ring;
+    }
+
     /** The map in `rect` with all its overlays on the map itself; returns what the symbols around it need. */
     mapCore(f, rect) {
       const c = this.c, W = this.W;
       const s = this.ctx.settings.get();
-      const circling = f.circling && !this.thermalOverride;
-      if (!f.circling) this.thermalOverride = false;
+      // thermal mode (manual 7.1.7.6 / 7.8): switch by circling (after the switch angle) or by SC -> Vario
+      let thermal = false;
+      if (s.thermalMode !== false) {
+        if (s.thermalSwitch === 'scvar') thermal = f.mode === 'vario';
+        else {
+          if (!f.circling) this._thermalLatch = false;
+          else if ((f.turnAngle || 0) >= (s.thermalAngle || 270)) this._thermalLatch = true;
+          thermal = !!this._thermalLatch;
+        }
+      }
+      if (!thermal) this.thermalOverride = false;
+      const circling = thermal && !this.thermalOverride;
+      if (this.panMode && this._wasCircling !== undefined && circling !== this._wasCircling) this.leavePan(); // thermal mode is a different page on the unit: panning ends with the switch
+      this._wasCircling = circling;
       let zi = clamp(s.mapZoom, 0, ZOOMS.length - 1);
-      if (circling) zi = 1; // thermal zoom (manual 7.1.7.6)
+      if (circling) zi = clamp(s.thermalZoom === undefined ? 1 : s.thermalZoom, 0, ZOOMS.length - 1);
       const scaleKm = ZOOMS[zi];
       const mpp = (scaleKm * 1000) / 100;
       const nav = this.ctx.navFor(this.modeId, f);
@@ -250,21 +309,32 @@
         cx: rect.x + rect.w / 2, cy: rect.y + rect.h * (up === 'track' ? 0.62 : 0.52), up, night: s.night,
         originE: org.e, originN: org.n,
       };
+      this._vp = { up, track: f.track, mpp, t: performance.now(), cursor: { lat: cLat, lon: cLon } }; // for pan mode
+      { // lat/lon box around the view (generous for track-up rotation) for the weather forecast grid
+        const rad = Math.hypot(rect.w, rect.h) * mpp / 2, dLat = rad / 111320, dLon = rad / (111320 * Math.max(0.2, Math.cos(cLat * Math.PI / 180)));
+        vp.box = { lat0: cLat - dLat, lat1: cLat + dLat, lon0: cLon - dLon, lon1: cLon + dLon };
+      }
       // terrain check on the glide to the target, refreshed about once a second
       const nowT = performance.now();
       if (!this._tc || nowT - this._tc.t > 1000) this._tc = { t: nowT, v: nav ? this.ctx.dem.clearance(f, nav, s.safetyAlt, geo) : null };
       const tclear = this._tc.v;
+      sym.setFlarmColors({ above: s.flarmAbove, near: s.flarmNear, below: s.flarmBelow });
       const fWith = Object.assign({}, f, { nav });
       const fai = s.showFai && this.ctx.flight.have && this.ctx.history.length > 20
-        ? { S: this.ctx.flightStart || { lat: this.ctx.history[0][0], lon: this.ctx.history[0][1] }, P: { lat: f.lat, lon: f.lon }, side: this.ctx.faiSide === undefined ? 1 : this.ctx.faiSide, min: s.optFaiMin || 0.28, alpha: s.faiAlpha / 100, color: '#ffd400', km: s.faiKmLines } : null;
+        ? { S: this.ctx.flightStart || { lat: this.ctx.history[0][0], lon: this.ctx.history[0][1] }, P: { lat: f.lat, lon: f.lon }, side: this.ctx.faiSide === undefined ? 1 : this.ctx.faiSide, min: s.optFaiMin || 0.28, alpha: s.faiAlpha / 100, color: s.faiColor || '#ffd400', km: s.faiKmLines } : null;
       this.mapR.draw(c, vp, {
         opt: s.showOpt ? this.optPath() : null,
         fai, nav: this.ctx.nav, f: fWith, history: this.ctx.history,
         thermals: s.showThermals !== false ? this.ctx.flight.thermals : null,
         airspaces: s.showAirspace !== false ? this.ctx.nav.airspaces : null,
-        mc: s.mc, safety: s.safetyAlt, collision: tclear,
+        mc: s.mc, safety: s.safetyAlt, collision: tclear, range: s.showGlideArea ? this.glideRange(f, s) : null,
+        style: circling ? Object.assign({}, s, { pathLength: s.thermalPathLength, pathStyle: s.thermalPathStyle, pathWidth: s.thermalPathWidth }) : s,
+        optTri: s.showOpt && s.showOptTriangle ? this.optTriangle() : null,
+        wptInfo: this.wptInfoFn(f, s),
+        weather: this.ctx.weather ? this.ctx.weather.layers(vp, s) : null,
         traffic: this.ctx.traffic.relative(f, 0), pcas: this.ctx.traffic.pcas(), paths: this.ctx.traffic.paths(),
       });
+      if (this.panMode) this.drawPan(c, vp, rect);
       return { nav, up, tclear, scaleKm, mpp };
     }
 
@@ -581,6 +651,10 @@
         still shown, like on a unit without the option, and explain themselves when pressed. */
     softkeys() {
       if (this.kind === 'custom' && this.editing) return LX.layout.editSoftkeys(this);
+      if (this.panMode) { // 8.2.1.10
+        const asp = this.panInfoKind === 'asp' && this.panInfos().asp.zone;
+        return { labels: ['', '', '', asp ? 'FREQ' : '', 'INFO', asp ? 'DISMISS' : '', 'GOTO', 'CLOSE'], persist: true };
+      }
       const nav = this.ctx.nav, run = this.ctx.runner;
       const startKey = !nav.started ? (nav.options.arm && !nav.armed ? 'ARM' : 'START') : 'NEXT';
       const m = this.modeId;
@@ -607,6 +681,7 @@
     button(i, long) {
       if (this.kind === 'custom' && this.editing) return LX.layout.editButton(this, i);
       const label = this.softkeys().labels[i];
+      if (this.panMode && label) return this.panButton(label) && true;
       const scr = this.scr, ctx = this.ctx, run = ctx.runner, f = ctx.flight.f;
       const needs = (what) => scr.toast(`${label}: needs ${what} (not available in this simulator)`, 2200);
       switch (label) {
@@ -628,7 +703,7 @@
         case 'AIRSPACE': scr.open(LX.setup.airspaceList(scr, ctx)); return true;
         case 'FLARM': scr.open(LX.setup.flarmList(scr, ctx)); return true;
         case 'LAYOUT': scr.open(LX.layout.menu(scr, ctx, this)); return true;
-        case 'PAN': this.panMode = !this.panMode; this.pan = { e: 0, n: 0 }; scr.toast(this.panMode ? 'Pan: PAGE = north/south, ZOOM = east/west. Press PAN to exit' : 'Pan off', 2500); return false;
+        case 'PAN': this.enterPan() || scr.toast('This page has no map to pan', 1500); return true;
         case 'MARK': {
           const n = ctx.nav.waypoints.filter((w) => /^MARK/.test(w.name)).length + 1;
           ctx.nav.waypoints.push({ name: 'MARK' + n, code: 'MARK', lat: f.lat, lon: f.lon, elev: f.alt, type: 'mark' });
@@ -687,14 +762,83 @@
       }
     }
 
+    /* ----------------------------------------------------------- pan mode (manual 8.2.1.10) */
+    /** True when this page currently shows a map that can be panned. */
+    canPan() { const vp = this._vp; return !!vp && performance.now() - vp.t < 600 && !(this.kind === 'custom' && this.editing); }
+    enterPan() {
+      if (!this.canPan()) return false;
+      if (!this.panMode) { this.panMode = true; this.pan = { e: 0, n: 0 }; this.panInfoIdx = null; this.scr.toast('Pan: PAGE up/down, MODE left/right, ZOOM zooms. CLOSE leaves', 3000); this.scr._refreshSoftkeys(true); } // show the pan buttons at once (a drag or long press has no button press to do that)
+      return true;
+    }
+    /** Move the view centre (= the blue cross) by metres in the screen frame: sx right, sy up. */
+    panScreen(sx, sy) {
+      const vp = this._vp;
+      let e = sx, n = sy;
+      if (vp.up === 'track') { const a = vp.track * Math.PI / 180, s = Math.sin(a), c = Math.cos(a); e = sx * c + sy * s; n = -sx * s + sy * c; }
+      this.pan.e += e; this.pan.n += n;
+    }
+    /** Mouse / finger drag: the map follows the pointer. */
+    drag(dx, dy) {
+      if (!this.enterPan()) return false;
+      this.panScreen(-dx * this._vp.mpp, dy * this._vp.mpp);
+      return true;
+    }
+    longPress() { return this.enterPan(); }
+    leavePan() { this.panMode = false; this.pan = { e: 0, n: 0 }; this.scr._refreshSoftkeys(true); }
+
+    /** What is under the cross: nearby waypoint, airspace zones, or the position itself. */
+    panInfos() {
+      const vp = this._vp, cur = vp.cursor, ctx = this.ctx, f = ctx.flight.f;
+      const alt = (m) => `${fm.alt(m)} ${LX.units.label('alt')}`;
+      const out = {};
+      let best = null;
+      const reach = vp.mpp * 18; // about 18 px
+      ctx.nav.waypoints.forEach((w) => { const d = geo.dist(cur.lat, cur.lon, w.lat, w.lon); if (d < reach && (!best || d < best.d)) best = { w, d }; });
+      out.wpt = best ? { title: 'Waypoint', wp: best.w, lines: [best.w.name + (best.w.code ? '  (' + best.w.code + ')' : ''), `${best.w.lat.toFixed(4)}°  ${best.w.lon.toFixed(4)}°`, `Elevation ${alt(best.w.elev || 0)}`] } : { title: 'Waypoint', lines: ['No waypoint nearby'] };
+      const zones = (ctx.nav.airspaces || []).filter((z) => { const l = LX.WarnGeo.toLocal(z, cur.lat, cur.lon); return LX.WarnGeo.horizontal(l, 0, 0).inside; });
+      zones.sort((a, b) => a.lower - b.lower);
+      out.asp = zones.length ? { title: 'Airspace', zone: zones[0], lines: zones.slice(0, 3).map((z) => `${z.name}  ${z.cls || ''}  ${alt(z.lower)} - ${alt(z.upper || 20000)}`) } : { title: 'Airspace', lines: ['No airspace here'] };
+      const elev = ctx.groundElev(cur);
+      out.pos = { title: 'Position', wp: { name: 'Cursor', code: '', lat: cur.lat, lon: cur.lon, elev: Math.round(elev), type: 'mark' }, lines: [`${cur.lat.toFixed(4)}°  ${cur.lon.toFixed(4)}°`, `Elevation ${alt(elev)}`, `${fm.dist(geo.dist(f.lat, f.lon, cur.lat, cur.lon))} ${LX.units.label('dist')}  brg ${fm.hdg(geo.bearing(f.lat, f.lon, cur.lat, cur.lon))}`] };
+      const auto = out.wpt.wp ? 'wpt' : out.asp.zone ? 'asp' : 'pos';
+      this.panInfoKind = this.panInfoIdx == null ? auto : ['wpt', 'asp', 'pos'][this.panInfoIdx % 3];
+      return out;
+    }
+    drawPan(c, vp, rect) {
+      const x = vp.cx, y = vp.cy;
+      c.save();
+      c.strokeStyle = '#2f9bff'; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(x - 20, y); c.lineTo(x + 20, y); c.moveTo(x, y - 20); c.lineTo(x, y + 20); c.stroke();
+      c.restore();
+      const info = this.panInfos()[this.panInfoKind];
+      const bx = 60, by = rect.y + 36, bw = Math.min(330, rect.w - bx - 90), lh = 19;
+      c.fillStyle = 'rgba(0,0,0,.78)'; c.fillRect(bx, by, bw, lh * (info.lines.length + 1) + 8);
+      c.strokeStyle = '#2f9bff'; c.lineWidth = 1; c.strokeRect(bx + .5, by + .5, bw, lh * (info.lines.length + 1) + 8);
+      sym.otext(c, info.title, bx + 8, by + 17, 14, { weight: 'normal', color: '#8fb6ff', align: 'left', halo: 'transparent' });
+      info.lines.forEach((t, i) => sym.otext(c, t, bx + 8, by + 17 + lh * (i + 1), 14, { weight: 'normal', align: 'left', halo: 'transparent' }));
+    }
+    panButton(label) {
+      const ctx = this.ctx, scr = this.scr, infos = this.panInfos(), info = infos[this.panInfoKind];
+      if (label === 'INFO') this.panInfoIdx = (['wpt', 'asp', 'pos'].indexOf(this.panInfoKind) + 1) % 3;
+      else if (label === 'CLOSE') this.leavePan();
+      else if (label === 'DISMISS' && info.zone) { ctx.warnings.dismiss(info.zone, 10, performance.now(), 'red'); scr.toast(`${info.zone.name} dismissed for 10 min`, 2000); }
+      else if (label === 'FREQ') scr.toast('FREQ: needs a radio bridge', 1500);
+      else if (label === 'GOTO' && (info.wp || infos.pos.wp)) {
+        const w = info.wp || infos.pos.wp;
+        ctx.nav.selected.apt = w; this.leavePan(); ctx.goMode('apt'); scr.toast(`Navigating to ${w.name}`, 1500);
+      }
+      return true;
+    }
+
     knob(name, dir) {
       if (this.kind === 'custom' && this.editing) return LX.layout.editKnob(this, name, dir);
-      if (this.panMode && (name === 'page' || name === 'zoom')) {
-        const step = ZOOMS[clamp(this.ctx.settings.get().mapZoom, 0, ZOOMS.length - 1)] * 100 * dir; // metres
-        if (name === 'page') this.pan.n += step; else this.pan.e += step;
+      if (this.panMode && this.canPan() && (name === 'page' || name === 'mode')) { // pan mode: PAGE moves the cross up/down, MODE left/right, ZOOM zooms
+        const step = this._vp.mpp * 24 * dir; // about 24 px per detent
+        if (name === 'page') this.panScreen(0, step); else this.panScreen(step, 0);
         return true;
       }
       if (name === 'zoom') {
+        if (this.panMode) { const s = this.ctx.settings; s.set({ mapZoom: clamp(s.get().mapZoom + dir, 0, ZOOMS.length - 1) }); return true; }
         if (this.kind === 'flarm') { const RR = 5, cur = this.radarRange !== undefined ? this.radarRange : 2; this.radarRange = clamp(cur + dir, 0, RR - 1); return true; }
         if (this.kind === 'apt' || this.kind === 'vario' || this.kind === 'meteo') return true;
         this.thermalOverride = true;

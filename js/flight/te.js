@@ -48,8 +48,9 @@
      * @param sinkAtV  polar sink at the current IAS, m/s (positive)
      * @param tau      display integration time, s (Vario needle filter)
      * @param comp     digital TE compensation 0..1 (100 % = fully compensated)
+     * @param nettoTau netto filter time constant, s (default: max(tau, 1))
      */
-    update(t, vs, v, sinkAtV, tau, comp) {
+    update(t, vs, v, sinkAtV, tau, comp, nettoTau) {
       if (comp === undefined) comp = 1;
       const o = this.out;
       if (this.lastT !== null && t > this.lastT) {
@@ -64,6 +65,7 @@
           this.vsF = this.vsF === undefined ? vs : this.vsF + (vs - this.vsF) * a;
           const raw = this.vsF + comp * (v / G) * this.dvdt;
           o.raw = raw;
+          o.nettoInst = raw + sinkAtV; // unfiltered netto (state.js applies the Netto / SC / Relative filters)
           o.dvdt = this.dvdt;
           if (!o.primed) {
             o.te = o.fast = raw;
@@ -73,7 +75,7 @@
             const f = (tc) => 1 - Math.exp(-dt / Math.max(0.05, tc));
             o.te += (raw - o.te) * f(tau);
             o.fast += (raw - o.fast) * f(0.35);
-            o.netto += (raw + sinkAtV - o.netto) * f(Math.max(tau, 1));
+            o.netto += (raw + sinkAtV - o.netto) * f(nettoTau !== undefined ? nettoTau : Math.max(tau, 1));
           }
         }
       }

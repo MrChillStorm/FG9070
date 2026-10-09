@@ -49,6 +49,8 @@
     uAlt: 'm', // m | ft
     uVario: 'm/s', // m/s | kt | ft/min
     uDist: 'km', // km | nm | sm
+    distMethod: 'fai', // 'fai' sphere | 'wgs84' ellipsoid (Setup > Units)
+    ballastMode: 'weight', // 'weight' (kg of water) | 'load' (kg/m2 wing loading) (Setup > Units)
     // Setup > Hardware > Vario unit: TE compensation
     teSource: 'ias', // 'ias' (realistic, default) | 'tas' (high-accuracy mode)
     teComp: 100, // % digital TE compensation (100 = fully compensated)
@@ -58,7 +60,7 @@
     varioRange: 5, // m/s full scale: 2.5 | 5 | 10
     scBand: 1.0, // m/s audio dead band in speed-to-fly mode
     integrator: 20, // s, average vario
-    nettoTau: 0.2,
+    nettoFilter: 1.5, // s; manual: default = same as the vario needle filter
     scTau: 1.5,
     relTau: 1.5,
     nettoTime: 20, // s, average netto
@@ -82,7 +84,10 @@
     mute: false,
     speech: false,
     // Polar and glider
-    glider: 'ask21',
+    glider: 'ask21', // built-in id or a key of gliders
+    favAirports: [], // names of recently selected airports (Airport select > Favourites)
+    countries: [], // airport select country filter (ISO codes); empty = all
+    gliders: {}, // user gliders (Setup > Polar and Glider > NEW), see LX.polar
     ballast: 0, // kg
     bugs: 0, // %
     // QNH and RES
@@ -104,6 +109,7 @@
     sunsetAlarm: false,
     timeAlarm1: 0, timeAlarm2: 0, timeAlarm3: 0, // minutes of flight time, 0 = off
     warnWpt: 0, // m, 0 = off
+    flarmDismiss: 15, // s: how long CLOSE silences a FLARM warning (manual 7.1.12.4.2.2: 0-120 s)
     flarmWarn: 'Medium', // No alarm | Low | Medium | High
     flarmVoice: true, flarmVoiceH: true, flarmVoiceV: true, flarmBearing: 'relative', flarmGraphic: true, // FLARM warning content (manual 7.1.10.3)
     showPcas: true, trafficPaths: 'off', // PCAS circles for non-directional traffic; flown paths of other aircraft
@@ -132,6 +138,25 @@
     autoData: true, // download airports (OurAirports) automatically on the first FlightGear fix when none are loaded
     openaipProxy: '', // e.g. http://localhost:5401 (tools/openaip-proxy.js): the OpenAIP API sends no CORS headers
     openaipKey: '', // free key from openaip.net for the online airspace/airport download
+    // Setup > Graphics > Glider and Track (manual 7.1.7.5)
+    showPath: true, pathLength: 50, pathStyle: 'fixed', pathColor: '#1a3cff', pathWidth: 2, // pathLength in minutes
+    showTrackLine: true, trackColor: '#464646', trackWidth: 2,
+    showTargetLine: true, targetColor: '#ff2fd5', targetWidth: 3,
+    showCollision: true,
+    showRangeCircles: true, rangeColor: '#000000', rangeWidth: 1,
+    showGlideArea: false, areaColor: '#ff9a1f', areaBorder: '#ff9a1f', areaFill: 'outside',
+    // Setup > Graphics > Thermal Mode (7.1.7.6), Optimization (7.1.7.7), Task (7.1.7.8), FLARM (7.1.7.9), Misc (7.1.7.10)
+    thermalMode: true, thermalSwitch: 'circling', thermalAngle: 270, thermalZoom: 1, thermalPathLength: 5, thermalPathStyle: 'autospan', thermalPathWidth: 3,
+    optColor: '#ffd400', optWidth: 3, showOptTriangle: false, faiColor: '#ffd400',
+    taskColor: '#ff2fd5', zoneColor: '#ff2fd5', zoneAlpha: 0, showSelectedZoneOnly: false,
+    showFlarm: true, flarmAbove: '#ff7a45', flarmNear: '#ffffff', flarmBelow: '#4fd37a', flarmLostAfter: 120, flarmSymbolSize: 10, flarmLabels: 'all',
+    thermalsCount: 4, buttonTimeout: 10, msgFont: 15,
+    // Setup > Graphics > Airspace (7.1.7.3) and Waypoints and Airports (7.1.7.4)
+    airspaceBelow: 0, airspaceType: 'A', airspaceStyle: {}, // airspaceBelow: show only zones starting below this MSL altitude (m), 0 = all
+    showWaypoints: true, wptMax: 60, wptSize: 6, wptUpper: 'name', wptLower: 'none', wptSingle: false, wptColorize: false, minRwLen: 0,
+    showMap: true, shadows: true, terrainQuality: 'high', terrainScheme: 'mountain', terrainOffset: 0, mapBackground: '#000000', showWindLines: false, // Setup > Graphics > Map and Terrain (7.1.7.1)
+    // Setup > Graphics > Weather (7.1.7.2): all off, they need internet
+    wxSat: false, wxSatLayer: '', wxSatAll: false, wxSatOpacity: 70, wxFc: false, wxFcParam: 'cloud_cover', wxFcOffset: 0, wxFcOpacity: 60, wxRain: false, wxRainOpacity: 70, wxRainHistory: 0, wxRainFreeze: 3, wxMinScale: 0, // wxMinScale: map scale-bar step (km) from which the layers show, 0 = always
     showAirspace: true,
     showThermals: true,
     page: 0,

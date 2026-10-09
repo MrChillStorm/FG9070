@@ -24,6 +24,8 @@
     { key: 'roll',  path: '/orientation/roll-deg',                               rate: 'fast' },
     { key: 'wdir',  path: '/environment/wind-from-heading-deg',                  rate: 'slow', optional: true },
     { key: 'wspd',  path: '/environment/wind-speed-kt',                          rate: 'slow', optional: true },
+    { key: 'oat',   path: '/environment/temperature-degc',                       rate: 'slow', optional: true },
+    { key: 'magvar', path: '/environment/magnetic-variation-deg',                rate: 'slow', optional: true },   // east positive
     { key: 'qnh',   path: '/environment/pressure-sea-level-inhg',                rate: 'slow', optional: true },
   ];
 })(window);

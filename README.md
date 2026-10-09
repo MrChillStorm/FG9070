@@ -87,7 +87,7 @@ side view, FLARM radar page, airport info, and for tasks the time-limited (AAT) 
 page; plus extras: a **vario page**, an **instrument page** (artificial horizon, airspeed /
 altitude / vario tapes, compass tape) and a **3D synthetic terrain view** (ray-marched from the DEM). Soft-key sets (MORE>>): AIRSPACE, FLARM, MARK, MAP, WIND,
 MC/BAL, SELECT, PAN, LAYOUT, EVENT, NIGHT, OFF; Task: EDIT, ARM/START/NEXT, RESTART, MOVE; Waypoint:
-EDIT, NEW, DELETE. **LAYOUT** edits the navboxes of a page (58 boxes from the manual's list).
+EDIT, NEW, DELETE. **PAN** (also: drag the map with the mouse or a finger, or long-press it) works like the manual's 8.2.1.10: a blue cross with an info box (waypoint, airspace, position; INFO cycles them), PAGE/MODE move the cross, ZOOM zooms, GOTO navigates to the point, DISMISS silences an airspace zone, CLOSE recentres. **LAYOUT** edits the navboxes of a page (58 boxes from the manual's list).
 
 **Page layout** – the LAYOUT button works like the manual's chapter 8: EDIT, DELETE, ADD / COPY above or below,
 SETTINGS; in edit mode MODE selects a symbol, PAGE moves it left/right, ZOOM up/down, RESIZE/MOVE, NEW (map, navbox,
@@ -127,7 +127,11 @@ by altitude / speed / climb, barogram, statistics, optimisation), **IGC export**
 distance** (3 TP) and a simplified FAI triangle.
 
 **Setup** (manual order) – QNH and RES, Flight Recorder, Weight and Balance, Vario Parameters,
-Display (brightness, orientation, night), Files and Transfer, Graphics, Sounds (Audio, Volumes,
+Display (brightness, orientation, night), Files and Transfer, Graphics (**Map and Terrain**: 14 terrain colour schemes, shadows, quality, offset, background, wind lines; **Glider and Track**: flown-path
+colouring by Mc / vario / altitude / ground speed, path length, track / target / collision options, range circles, glider
+range area; **Weather** (free services, off by default: Meteosat satellite from EUMETSAT, a coarse Open-Meteo forecast grid of
+cloud cover / CAPE / boundary-layer height / precipitation, RainViewer rain radar with animated history); **Airspace** per-type zoom/colour/width/opacity and ceiling filter; **Waypoints and Airports** labels, max visible,
+colourised reachability and short-runway crosses; **Thermal Mode**; the Optimization, Task, FLARM and Misc. looks), Sounds (Audio, Volumes,
 Voice, Alarms), Observation Zones (defaults + the manual's templates), Optimization, Warnings, Units,
 Hardware (Vario Unit/TE, Network, FLARM traffic source), Polar and Glider, Profiles and Pilots
 (save/switch/rename/export), About.
@@ -159,11 +163,17 @@ indicators/repeater, remote stick, 232 bridge (radio, transponder), team code, N
 hardware settings, the Windows **LX Styler** program and its file formats (the on-device LAYOUT editor *is*
 implemented), SoaringSpot, SD/USB/Connect/Wi-Fi, passwords/admin, languages other than English
 (by decision), gear warning. Also missing: NMEA Output,
-TO NANO (task declaration to a Nano recorder), the satellite sky view and FREQ on the info pages,
-the Thermal Mode setup (enable, page zoom, track length/colouring, switch angle),
+TO NANO (task declaration to a Nano recorder), FREQ on the Near page (the satellite and network pages only say that there is nothing to show),
 centre-of-gravity limits in Weight and Balance, Save to SD, OLC points scoring, and per-symbol fonts in
-the layout editor. Airspace has no keyless download source I could verify – load a file
+the layout editor. Found by a read-through of the manual's Setup chapters (7.1.1-7.1.12): in **QNH and RES** an independent
+Safety Mc, magnetic variation, the four ETA/ETE calculation methods and Soaring start; in **Graphics** (7.1.7) land-feature elements, label zoom, raster maps, airspace
+zones of inactive/NOTAM types and separate side-view styles and per-type waypoint label details are missing (Glider and Track, Thermal Mode, Optimization, Task, FLARM and
+Misc. exist, without Hawk Netto / engine colouring, the glide-ratio averaging time, flown task and AAT isolines, PCAS timeout,
+button proximity and font size); in **Hardware** the I8/I9 indicator setups,
+Bridge 232, rear/front seat, angle of attack, engine, flaps and analog inputs. Airspace has no keyless download source I could verify – load a file
 (Setup → Files and Transfer → Airspace lists the free websites).
+Found in the Airport/Waypoint/Task mode check (7.5-7.8, 11): the airport select dialog has no map mode; thermal mode zooms the current page in place instead of switching to a page that is designated as the thermal page.
+In **Polar and Glider** (7.1.13) up to three editable gliders can be copied from the built-in ones (polar a/b/c, reference weight, stall speed with a stall warning, Vne, flap labels, dump rates; scaled by total Weight and Balance weight). Missing: the CG envelope, glider arms, and .lxg load/save.
 
 ## Layout
 
@@ -186,8 +196,8 @@ the layout editor. Airspace has no keyless download source I could verify – lo
 
 Tests (plain `node`, no dependencies): `audio`, `flight` (TE, polar, MacCready, final glide), `demo`,
 `task` (zones, start/finish, ARM, PEV, AAT), `files` (CUP, OpenAir, OurAirports, OpenAIP, IGC),
-`warnings`, `optimizer` (+recorder), `ai`, `dem`, `sun`.
-Online pieces without a key: Open-Meteo (meteogram), pdf.js from jsDelivr (PDF reader), OurAirports, OpenTopoMap, Terrarium. Run `npm test` (or `for t in tests/*.test.js; do node $t; done`) from this folder.
+`warnings`, `optimizer` (+recorder), `ai`, `dem`, `sun`, `map` (path colouring), `weather`, `openaip-proxy`.
+Online pieces without a key: Open-Meteo (meteogram, forecast layer), RainViewer and EUMETSAT EUMETView (weather layers; `tools/weather-probe.js` tests that they are reachable), pdf.js from jsDelivr (PDF reader), OurAirports, OpenTopoMap, Terrarium. Run `npm test` (or `for t in tests/*.test.js; do node $t; done`) from this folder.
 The FlightGear HTTP/WebSocket sources and small helpers in `js/shared/` come from the author's AeroPanel instrument-panel project (MIT) and were copied in so this folder is fully standalone.
 
 ## FlightGear properties used

@@ -38,7 +38,7 @@
       if (this.cur && flying && tMs - this.lastT >= (s.recInterval || 4) * 1000) {
         this.lastT = tMs;
         const sod = this.cur.startSod + (tMs - this.cur.t0) / 1000;
-        if (this.cur.fixes.length < MAX_FIXES) this.cur.fixes.push([sod, f.lat, f.lon, f.alt, f.gs, f.te]);
+        if (this.cur.fixes.length < MAX_FIXES) this.cur.fixes.push([sod, f.lat, f.lon, f.alt, f.gs, f.te, f.ias]); // [6] = IAS for the leg statistics
       }
     }
 
@@ -47,7 +47,7 @@
       this.cur = {
         date: d.toISOString().slice(0, 10), start: d.toTimeString().slice(0, 5),
         startSod: d.getUTCHours() * 3600 + d.getUTCMinutes() * 60 + d.getUTCSeconds(),
-        t0: tMs, fixes: [], glider: LX.polar.GLIDERS[this.S.get().glider].name, pilot: this.S.get().pilot || '',
+        t0: tMs, fixes: [], glider: LX.polar.glider(this.S.get().glider).name, pilot: this.S.get().pilot || '',
         task: this.nav && this.nav.task && this.nav.task.length ? this.nav.options.name : '',
       };
       this.lastT = -1e9;
