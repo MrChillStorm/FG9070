@@ -146,6 +146,9 @@
     taskColor: '#ff2fd5', zoneColor: '#ff2fd5', zoneAlpha: 0, showSelectedZoneOnly: false,
     showFlarm: true, flarmAbove: '#ff7a45', flarmNear: '#ffffff', flarmBelow: '#4fd37a', flarmLostAfter: 120, flarmSymbolSize: 10, flarmLabels: 'all',
     thermalsCount: 4, buttonTimeout: 10, msgFont: 15,
+    // Setup > Graphics > Airspace (7.1.7.3) and Waypoints and Airports (7.1.7.4)
+    airspaceBelow: 0, airspaceType: 'A', airspaceStyle: {}, // airspaceBelow: show only zones starting below this MSL altitude (m), 0 = all
+    showWaypoints: true, wptMax: 60, wptSize: 6, wptUpper: 'name', wptLower: 'none', wptSingle: false, wptColorize: false, minRwLen: 0,
     showAirspace: true,
     showThermals: true,
     page: 0,

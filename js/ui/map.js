@@ -37,6 +37,7 @@
     // e, n in metres; ~ 40 km wavelength main relief + finer detail
     return 0.55 * vnoise(e / 22000, n / 22000) + 0.3 * vnoise(e / 7000 + 31, n / 7000 + 17) + 0.15 * vnoise(e / 2200 + 5, n / 2200 + 9);
   }
+  const AIRSPACE_TYPES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'CTR', 'TMA', 'R', 'P', 'Q', 'DNG', 'TMZ', 'RMZ', 'W', 'GSEC']; // + 'other'
   const RAMP = [
     [0.0, [86, 128, 64]], [0.30, [118, 156, 74]], [0.48, [178, 192, 100]],
     [0.62, [196, 176, 118]], [0.78, [172, 150, 122]], [1.0, [226, 224, 218]],
@@ -131,9 +132,9 @@
       const st = data.style || {};
       if (st.showRangeCircles !== false) this.drawRings(c, vp, st);
       if (data.range && st.showGlideArea) this.drawGlideArea(c, data.range, toScreen, vp, st);
-      if (data.airspaces) this.drawAirspace(c, data.airspaces, toScreen, vp);
+      if (data.airspaces) this.drawAirspace(c, data.airspaces, toScreen, vp, st);
       if (data.nav) {
-        this.drawWaypoints(c, data.nav, toScreen, vp);
+        if (st.showWaypoints !== false) this.drawWaypoints(c, data.nav, toScreen, vp, st, data.wptInfo);
         this.drawTask(c, data.nav, toScreen, vp, st);
       }
       if (data.fai) this.drawFai(c, data.fai, toScreen, vp);
@@ -253,8 +254,16 @@
       }
     }
 
-    drawAirspace(c, list, toScreen, vp) {
+    /** Style key of a zone for Setup > Graphics > Airspace. */
+    static airspaceType(a) { const k = String(a.cls || '').toUpperCase(); return AIRSPACE_TYPES.indexOf(k) >= 0 ? k : 'other'; }
+
+    drawAirspace(c, list, toScreen, vp, st) {
+      st = st || {};
+      const widthKm = (vp.rect.w * vp.mpp) / 1000;
       for (const a of list) {
+        const sty = st.airspaceStyle && st.airspaceStyle[MapRenderer.airspaceType(a)];
+        if (sty && sty.zoom && widthKm > sty.zoom) continue;                    // type visible up to this zoom (screen width, km)
+        if (st.airspaceBelow > 0 && a.lower > st.airspaceBelow) continue;       // "show only airspace below"
         c.beginPath();
         if (a.circle) {
           const [x, y] = toScreen(a.circle.lat, a.circle.lon);
@@ -263,10 +272,11 @@
           a.poly.forEach((p, i) => { const [x, y] = toScreen(p[0], p[1]); i ? c.lineTo(x, y) : c.moveTo(x, y); });
           c.closePath();
         }
-        c.fillStyle = a.alarm ? 'rgba(255,40,30,.42)' : (a.fill || 'rgba(220,40,30,.22)');
+        const rgba = (hex, al) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${al})`; };
+        c.fillStyle = a.alarm ? 'rgba(255,40,30,.42)' : sty && sty.color ? rgba(sty.color, (sty.alpha === undefined ? 22 : sty.alpha) / 100) : (a.fill || 'rgba(220,40,30,.22)');
         c.fill();
-        c.strokeStyle = a.stroke || '#d6342a';
-        c.lineWidth = a.alarm ? 5 : 2;
+        c.strokeStyle = (sty && sty.color) || a.stroke || '#d6342a';
+        c.lineWidth = a.alarm ? 5 : (sty && sty.width) || 2;
         c.stroke();
         if (a.alarm) { // alarmed zone: thick outline + distance to the nearest point (manual 7.1.10.1)
           const [lx, ly] = a.circle ? toScreen(a.circle.lat, a.circle.lon) : toScreen(a.poly[0][0], a.poly[0][1]);
@@ -278,27 +288,70 @@
       }
     }
 
-    drawWaypoints(c, nav, toScreen, vp) {
+    /**
+     * Waypoints and airports (manual 7.1.7.4): symbol size, at most `wptMax` labelled points on screen (more -> small dots),
+     * an upper and a lower label (name, code, elevation, arrival/required altitude, required Mc, required L/D, frequency),
+     * optional colourised label background (green: reachable at the safety Mc, yellow: at Mc 0) and a red cross over
+     * landing places with a runway shorter than the minimum.
+     */
+    drawWaypoints(c, nav, toScreen, vp, st, info) {
+      st = st || {};
       c.font = '12px Verdana, sans-serif';
       c.textBaseline = 'middle';
+      const R = vp.rect, r0 = st.wptSize || 6;
+      const vis = [];
       for (const w of nav.waypoints) {
         const [x, y] = toScreen(w.lat, w.lon);
-        if (x < vp.rect.x - 40 || x > vp.rect.x + vp.rect.w + 40 || y < vp.rect.y - 20 || y > vp.rect.y + vp.rect.h + 20) continue;
+        if (x < R.x - 40 || x > R.x + R.w + 40 || y < R.y - 20 || y > R.y + R.h + 20) continue;
+        vis.push([w, x, y]);
+      }
+      const dots = vis.length > (st.wptMax || 60);
+      for (const [w, x, y] of vis) {
         const landable = w.type === 'airport' || w.type === 'glider' || w.type === 'field';
+        if (dots) { c.fillStyle = '#1b4fd6'; c.beginPath(); c.arc(x, y, 3, 0, Math.PI * 2); c.fill(); continue; }
         c.lineWidth = 2;
         if (landable) {
           c.strokeStyle = '#1b4fd6';
           c.fillStyle = '#fff';
-          c.beginPath(); c.arc(x, y, 6, 0, Math.PI * 2); c.fill(); c.stroke();
-          c.beginPath(); c.moveTo(x - 4, y); c.lineTo(x + 4, y); c.moveTo(x, y - 4); c.lineTo(x, y + 4); c.stroke();
+          c.beginPath(); c.arc(x, y, r0, 0, Math.PI * 2); c.fill(); c.stroke();
+          c.beginPath(); c.moveTo(x - r0 * 0.66, y); c.lineTo(x + r0 * 0.66, y); c.moveTo(x, y - r0 * 0.66); c.lineTo(x, y + r0 * 0.66); c.stroke();
+          if (st.minRwLen > 0 && w.rwLen > 0 && w.rwLen < st.minRwLen) { // runway too short: red cross
+            c.strokeStyle = '#ff3b30'; c.lineWidth = 3;
+            c.beginPath(); c.moveTo(x - r0, y - r0); c.lineTo(x + r0, y + r0); c.moveTo(x + r0, y - r0); c.lineTo(x - r0, y + r0); c.stroke();
+          }
         } else {
           c.strokeStyle = '#000'; c.fillStyle = '#ffe14a';
-          c.beginPath(); c.moveTo(x, y - 6); c.lineTo(x + 6, y + 5); c.lineTo(x - 6, y + 5); c.closePath(); c.fill(); c.stroke();
+          c.beginPath(); c.moveTo(x, y - r0); c.lineTo(x + r0, y + r0 * 0.83); c.lineTo(x - r0, y + r0 * 0.83); c.closePath(); c.fill(); c.stroke();
         }
-        c.fillStyle = '#10223a';
-        c.strokeStyle = 'rgba(255,255,255,.8)';
-        c.lineWidth = 3;
-        c.strokeText(w.name, x + 9, y); c.fillText(w.name, x + 9, y);
+        const parts = [st.wptUpper || 'name', st.wptLower || 'none'].map((k) => this.wptLabel(w, k, info)).filter((t) => t);
+        if (!parts.length) continue;
+        const lines = st.wptSingle ? [parts.join(' ')] : parts;
+        let bg = null;
+        if (st.wptColorize && info) { const q = info(w); bg = q.arrival >= 0 ? '#29d35a' : q.arrival0 >= 0 ? '#ffd400' : null; }
+        lines.forEach((txt, li) => {
+          const ty = y + (li - (lines.length - 1) / 2) * 13;
+          if (bg) { const tw = c.measureText(txt).width; c.fillStyle = bg; c.fillRect(x + 8, ty - 7, tw + 4, 14); }
+          c.fillStyle = '#10223a';
+          c.strokeStyle = bg ? 'rgba(0,0,0,0)' : 'rgba(255,255,255,.8)';
+          c.lineWidth = 3;
+          c.strokeText(txt, x + 9 + r0 - 6, ty); c.fillText(txt, x + 9 + r0 - 6, ty);
+        });
+      }
+    }
+
+    /** Text of one waypoint label item, '' when not available. */
+    wptLabel(w, kind, info) {
+      const U = LX.units, fm = LX.fmt;
+      switch (kind) {
+        case 'name': return w.name || '';
+        case 'code': return w.code || '';
+        case 'elev': return w.elev !== undefined ? Math.round(U.alt(w.elev)) + U.label('alt') : '';
+        case 'freq': return w.freq || '';
+        case 'arrival': { const q = info && info(w); return q && isFinite(q.arrival) ? fm.signed(U.alt(q.arrival), 0) : ''; }
+        case 'required': { const q = info && info(w); return q && isFinite(q.required) ? Math.round(U.alt(q.required)) + U.label('alt') : ''; }
+        case 'reqMc': { const q = info && info(w); return q && isFinite(q.reqMc) ? fm.num(U.vario(q.reqMc), 1) : ''; }
+        case 'reqLD': { const q = info && info(w); return q && isFinite(q.reqLD) ? String(Math.round(q.reqLD)) : ''; }
+        default: return '';
       }
     }
 
@@ -547,5 +600,5 @@
     }
   }
 
-  LX.Map = { Renderer: MapRenderer, ZOOMS, terrain, ramp, tileMath: { tileX, tileY, tileLon, tileLat, tileZoom }, TILE_STYLES };
+  LX.Map = { Renderer: MapRenderer, AIRSPACE_TYPES, ZOOMS, terrain, ramp, tileMath: { tileX, tileY, tileLon, tileLat, tileZoom }, TILE_STYLES };
 })(window);

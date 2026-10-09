@@ -226,6 +226,24 @@
       return this._opt.pts;
     }
 
+    /** Per-waypoint glide numbers for the map labels (manual 7.1.7.4), computed lazily and only for labelled points. */
+    wptInfoFn(f, s) {
+      const flight = this.ctx.flight, pol = flight.getPolar(), mcSafe = Math.max(0, s.mc + s.mcOffset), cache = new Map();
+      return (w) => {
+        let q = cache.get(w);
+        if (q) return q;
+        const dist = geo.dist(f.lat, f.lon, w.lat, w.lon), hw = flight._headwindAlong(geo.bearing(f.lat, f.lon, w.lat, w.lon)), elev = w.elev || 0;
+        const fgAt = (mc) => LX.polar.finalGlide(pol, { mc, dist, alt: f.alt, targetElev: elev, safety: s.safetyAlt, headwind: hw });
+        const a = fgAt(mcSafe), a0 = fgAt(0);
+        let reqMc = NaN;
+        if (a0.arrivalHeight >= 0) { let lo = 0, hi = 5; for (let i = 0; i < 8; i++) { const mid = (lo + hi) / 2; if (fgAt(mid).arrivalHeight >= 0) lo = mid; else hi = mid; } reqMc = lo; }
+        const usable = f.alt - elev - s.safetyAlt;
+        q = { arrival: a.arrivalHeight, arrival0: a0.arrivalHeight, required: elev + s.safetyAlt + a.heightNeeded, reqMc, reqLD: usable > 0 ? dist / usable : Infinity };
+        cache.set(w, q);
+        return q;
+      };
+    }
+
     /** Largest triangle of the recorded track (not necessarily FAI), recomputed every 10 s (manual 7.1.7.7: show optimized triangle). */
     optTriangle() {
       const h = this.ctx.history, now = performance.now();
@@ -305,6 +323,7 @@
         mc: s.mc, safety: s.safetyAlt, collision: tclear, range: s.showGlideArea ? this.glideRange(f, s) : null,
         style: circling ? Object.assign({}, s, { pathLength: s.thermalPathLength, pathStyle: s.thermalPathStyle, pathWidth: s.thermalPathWidth }) : s,
         optTri: s.showOpt && s.showOptTriangle ? this.optTriangle() : null,
+        wptInfo: this.wptInfoFn(f, s),
         traffic: this.ctx.traffic.relative(f, 0), pcas: this.ctx.traffic.pcas(), paths: this.ctx.traffic.paths(),
       });
       return { nav, up, tclear, scaleKm, mpp };

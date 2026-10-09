@@ -392,10 +392,55 @@
     });
   }
 
+  /* ------------------------------------------- Setup > Graphics > Airspace (7.1.7.3) */
+  function airspaceLook(scr) {
+    const AS_DEFAULT = { zoom: 1000, color: '#ff3b30', width: 2, alpha: 22 };
+    const TYPES = LX.Map.AIRSPACE_TYPES.concat('other');
+    const cur = () => Object.assign({}, AS_DEFAULT, (S().get().airspaceStyle || {})[S().get().airspaceType]);
+    const put = (patch) => { const all = Object.assign({}, S().get().airspaceStyle || {}); all[S().get().airspaceType] = Object.assign(cur(), patch); S().set({ airspaceStyle: all }); };
+    return new FormView(scr, {
+      title: 'Airspace',
+      live: true,
+      fields: [
+        check('', 'showAirspace', 'Show airspace'),
+        spin('Show only airspace below', 'airspaceBelow', 0, 12000, 100, (v) => (v ? num(U().alt(v), 0) + ' ' + U().label('alt') : 'all'), { coarse: 10 }),
+        Object.assign({ type: 'select', label: 'Type', options: TYPES, show: (v) => (v === 'other' ? 'Other / unknown' : 'Class / type ' + v) }, bind('airspaceType')),
+        { type: 'spin', label: 'Zoom (visible up to)', min: 10, max: 1000, step: 10, coarse: 5, get: () => cur().zoom, set: (v) => put({ zoom: v }), fmt: (v) => (v >= 1000 ? 'always' : v + ' km') },
+        { type: 'select', label: 'Colour', options: Object.keys(COLORS), show: (v) => COLORS[v] || v, get: () => cur().color, set: (v) => put({ color: v }) },
+        { type: 'spin', label: 'Width', min: 1, max: 6, step: 1, coarse: 1, get: () => cur().width, set: (v) => put({ width: v }), fmt: (v) => v + ' px' },
+        { type: 'spin', label: 'Opacity', min: 0, max: 100, step: 5, coarse: 4, get: () => cur().alpha, set: (v) => put({ alpha: v }), fmt: (v) => v + '%' },
+        section('Settings apply to the selected type. No inactive zones / NOTAMs / separate side-view styles.'),
+      ],
+      buttons: { 6: { label: 'DEFAULT', run: () => { const all = Object.assign({}, S().get().airspaceStyle || {}); delete all[S().get().airspaceType]; S().set({ airspaceStyle: all }); } } },
+    });
+  }
+
+  /* ------------------------------ Setup > Graphics > Waypoints and Airports (7.1.7.4) */
+  function waypointLook(scr) {
+    const KINDS = ['none', 'name', 'code', 'elev', 'arrival', 'required', 'reqMc', 'reqLD', 'freq'];
+    const KN = { none: 'None', name: 'Name', code: 'Code', elev: 'Elevation', arrival: 'Arrival altitude', required: 'Required altitude', reqMc: 'Required Mc', reqLD: 'Required L/D', freq: 'Frequency' };
+    return new FormView(scr, {
+      title: 'Waypoints and Airports',
+      fields: [
+        check('', 'showWaypoints', 'Show waypoints'),
+        spin('Max. visible', 'wptMax', 10, 300, 10, (v) => String(v), { coarse: 5 }),
+        spin('Symbol size', 'wptSize', 3, 12, 1, (v) => v + ' px'),
+        Object.assign({ type: 'select', label: 'Upper label', options: KINDS, show: (v) => KN[v] }, bind('wptUpper')),
+        Object.assign({ type: 'select', label: 'Lower label', options: KINDS, show: (v) => KN[v] }, bind('wptLower')),
+        check('', 'wptSingle', 'Single label (one line)'),
+        check('', 'wptColorize', 'Colorize label (green: reachable at Mc, yellow: at Mc 0)'),
+        spin('Min. runway length', 'minRwLen', 0, 2000, 50, (v) => (v ? num(v, 0) + ' m' : 'off'), { coarse: 4 }),
+        section('Arrival / required altitude use the safety Mc and the wind; no wind profile. Short runways get a red cross. Labels per waypoint type and runway width are not supported.'),
+      ],
+    });
+  }
+
   /* ----------------------------------------------------------- Setup > Graphics */
   function graphics(scr, ctx) {
     return new MenuView(scr, [
       { label: 'Map and Terrain', color: '#7ee07e', run: (s) => s.open(mapAndTerrain(s)) },
+      { label: 'Airspace', color: '#ff5a4a', run: (s) => s.open(airspaceLook(s)) },
+      { label: 'Waypoints and Airports', color: '#5fd0ff', run: (s) => s.open(waypointLook(s)) },
       { label: 'Glider and Track', color: '#ffb000', run: (s) => s.open(gliderTrack(s)) },
       { label: 'Thermal Mode', color: '#ff9a1f', run: (s) => s.open(thermalModeSetup(s)) },
       { label: 'Optimization', color: '#ffd400', run: (s) => s.open(optimizationLook(s)) },
