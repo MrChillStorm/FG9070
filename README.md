@@ -87,7 +87,7 @@ side view, FLARM radar page, airport info, and for tasks the time-limited (AAT) 
 page; plus extras: a **vario page**, an **instrument page** (artificial horizon, airspeed /
 altitude / vario tapes, compass tape) and a **3D synthetic terrain view** (ray-marched from the DEM). Soft-key sets (MORE>>): AIRSPACE, FLARM, MARK, MAP, WIND,
 MC/BAL, SELECT, PAN, LAYOUT, EVENT, NIGHT, OFF; Task: EDIT, ARM/START/NEXT, RESTART, MOVE; Waypoint:
-EDIT, NEW, DELETE. **LAYOUT** edits the navboxes of a page (58 boxes from the manual's list).
+EDIT, NEW, DELETE. **PAN** (also: drag the map with the mouse or a finger, or long-press it) works like the manual's 8.2.1.10: a blue cross with an info box (waypoint, airspace, position; INFO cycles them), PAGE/MODE move the cross, ZOOM zooms, GOTO navigates to the point, DISMISS silences an airspace zone, CLOSE recentres. **LAYOUT** edits the navboxes of a page (58 boxes from the manual's list).
 
 **Page layout** – the LAYOUT button works like the manual's chapter 8: EDIT, DELETE, ADD / COPY above or below,
 SETTINGS; in edit mode MODE selects a symbol, PAGE moves it left/right, ZOOM up/down, RESIZE/MOVE, NEW (map, navbox,

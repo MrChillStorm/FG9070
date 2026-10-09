@@ -21,6 +21,7 @@
  *   softkeys()         -> { labels: [8 x string|''], persist?: bool }
  *   button(i, long)    -> true | 'keep' (keep labels open) | false
  *   knob(name, dir)    -> true if consumed (else the screen does the default)
+ *   longPress()        optional: long press on the LCD; true = handled (swallows the release)
  *   drag(dx, dy)       optional: pointer drag on the LCD (LCD pixels since the last call); return true to take the
  *                      gesture (maps, PDF pages), otherwise it stays a swipe (mode/page change)
  *   resize()
@@ -240,21 +241,25 @@
 
     /* -------------------------------------------------------------- gestures */
     _gestures() {
-      let start = null, last = null, dragging = false;
+      let start = null, last = null, dragging = false, hold = 0;
       this.lcd.addEventListener('pointerdown', (e) => {
         start = { x: e.clientX, y: e.clientY, t: performance.now() };
         last = { x: e.clientX, y: e.clientY }; dragging = false;
+        clearTimeout(hold); // a long press on the map jumps into pan mode (8.2.1.10, touch option)
+        hold = setTimeout(() => { const v = this.view; if (start && !dragging && v && v.longPress && v.longPress()) dragging = true; }, 600);
       });
       this.lcd.addEventListener('pointermove', (e) => {
         if (!start || !(e.buttons & 1 || e.pointerType === 'touch')) return;
         const v = this.view, sc = LX.device.scale || 1;
         if (!v || !v.drag) return;
         if (!dragging && Math.hypot(e.clientX - start.x, e.clientY - start.y) / sc < 6) return;
+        clearTimeout(hold);
         const dx = (e.clientX - last.x) / sc, dy = (e.clientY - last.y) / sc;
         last = { x: e.clientX, y: e.clientY };
         if (v.drag(dx, dy)) dragging = true;
       });
       this.lcd.addEventListener('pointerup', (e) => {
+        clearTimeout(hold);
         if (!start) return;
         if (dragging) { start = null; dragging = false; return; }
         const sc = LX.device.scale || 1;

@@ -307,7 +307,7 @@
         cx: rect.x + rect.w / 2, cy: rect.y + rect.h * (up === 'track' ? 0.62 : 0.52), up, night: s.night,
         originE: org.e, originN: org.n,
       };
-      this._vp = { up, track: f.track, mpp, t: performance.now() }; // for drag panning
+      this._vp = { up, track: f.track, mpp, t: performance.now(), cursor: { lat: cLat, lon: cLon } }; // for pan mode
       { // lat/lon box around the view (generous for track-up rotation) for the weather forecast grid
         const rad = Math.hypot(rect.w, rect.h) * mpp / 2, dLat = rad / 111320, dLon = rad / (111320 * Math.max(0.2, Math.cos(cLat * Math.PI / 180)));
         vp.box = { lat0: cLat - dLat, lat1: cLat + dLat, lon0: cLon - dLon, lon1: cLon + dLon };
@@ -332,6 +332,7 @@
         weather: this.ctx.weather ? this.ctx.weather.layers(vp, s) : null,
         traffic: this.ctx.traffic.relative(f, 0), pcas: this.ctx.traffic.pcas(), paths: this.ctx.traffic.paths(),
       });
+      if (this.panMode) this.drawPan(c, vp, rect);
       return { nav, up, tclear, scaleKm, mpp };
     }
 
@@ -648,6 +649,10 @@
         still shown, like on a unit without the option, and explain themselves when pressed. */
     softkeys() {
       if (this.kind === 'custom' && this.editing) return LX.layout.editSoftkeys(this);
+      if (this.panMode) { // 8.2.1.10
+        const asp = this.panInfoKind === 'asp' && this.panInfos().asp.zone;
+        return { labels: ['', '', '', asp ? 'FREQ' : '', 'INFO', asp ? 'DISMISS' : '', 'GOTO', 'CLOSE'], persist: true };
+      }
       const nav = this.ctx.nav, run = this.ctx.runner;
       const startKey = !nav.started ? (nav.options.arm && !nav.armed ? 'ARM' : 'START') : 'NEXT';
       const m = this.modeId;
@@ -674,6 +679,7 @@
     button(i, long) {
       if (this.kind === 'custom' && this.editing) return LX.layout.editButton(this, i);
       const label = this.softkeys().labels[i];
+      if (this.panMode && label) return this.panButton(label) && true;
       const scr = this.scr, ctx = this.ctx, run = ctx.runner, f = ctx.flight.f;
       const needs = (what) => scr.toast(`${label}: needs ${what} (not available in this simulator)`, 2200);
       switch (label) {
@@ -695,7 +701,7 @@
         case 'AIRSPACE': scr.open(LX.setup.airspaceList(scr, ctx)); return true;
         case 'FLARM': scr.open(LX.setup.flarmList(scr, ctx)); return true;
         case 'LAYOUT': scr.open(LX.layout.menu(scr, ctx, this)); return true;
-        case 'PAN': this.panMode = !this.panMode; this.dragPan = false; this.pan = { e: 0, n: 0 }; scr.toast(this.panMode ? 'Pan: PAGE = north/south, ZOOM = east/west. Press PAN to exit' : 'Pan off', 2500); return false;
+        case 'PAN': this.enterPan() || scr.toast('This page has no map to pan', 1500); return true;
         case 'MARK': {
           const n = ctx.nav.waypoints.filter((w) => /^MARK/.test(w.name)).length + 1;
           ctx.nav.waypoints.push({ name: 'MARK' + n, code: 'MARK', lat: f.lat, lon: f.lon, elev: f.alt, type: 'mark' });
@@ -754,27 +760,83 @@
       }
     }
 
-    /** Dragging the map with the mouse / a finger pans it (the PAN function); PAN toggles it off again. */
-    drag(dx, dy) {
+    /* ----------------------------------------------------------- pan mode (manual 8.2.1.10) */
+    /** True when this page currently shows a map that can be panned. */
+    canPan() { const vp = this._vp; return !!vp && performance.now() - vp.t < 600 && !(this.kind === 'custom' && this.editing); }
+    enterPan() {
+      if (!this.canPan()) return false;
+      if (!this.panMode) { this.panMode = true; this.pan = { e: 0, n: 0 }; this.panInfoIdx = null; this.scr.toast('Pan: PAGE up/down, MODE left/right, ZOOM zooms. CLOSE leaves', 3000); }
+      return true;
+    }
+    /** Move the view centre (= the blue cross) by metres in the screen frame: sx right, sy up. */
+    panScreen(sx, sy) {
       const vp = this._vp;
-      if (!vp || performance.now() - vp.t > 600 || (this.kind === 'custom' && this.editing)) return false;
-      if (!this.panMode) { this.panMode = true; this.dragPan = true; this.pan = { e: 0, n: 0 }; this.scr.toast('Map panned: press PAN to centre on the glider again', 2500); }
-      // (no thermalOverride here: leaving thermal mode would switch the north-up thermal map back to track-up)
-      // the content follows the pointer, so the view centre moves the other way (screen frame: x right, y down)
-      let e = -dx * vp.mpp, n = dy * vp.mpp;
-      if (vp.up === 'track') { const a = vp.track * Math.PI / 180, s = Math.sin(a), c = Math.cos(a); const e2 = e * c + n * s, n2 = -e * s + n * c; e = e2; n = n2; }
+      let e = sx, n = sy;
+      if (vp.up === 'track') { const a = vp.track * Math.PI / 180, s = Math.sin(a), c = Math.cos(a); e = sx * c + sy * s; n = -sx * s + sy * c; }
       this.pan.e += e; this.pan.n += n;
+    }
+    /** Mouse / finger drag: the map follows the pointer. */
+    drag(dx, dy) {
+      if (!this.enterPan()) return false;
+      this.panScreen(-dx * this._vp.mpp, dy * this._vp.mpp);
+      return true;
+    }
+    longPress() { return this.enterPan(); }
+    leavePan() { this.panMode = false; this.pan = { e: 0, n: 0 }; }
+
+    /** What is under the cross: nearby waypoint, airspace zones, or the position itself. */
+    panInfos() {
+      const vp = this._vp, cur = vp.cursor, ctx = this.ctx, f = ctx.flight.f;
+      const alt = (m) => `${fm.alt(m)} ${LX.units.label('alt')}`;
+      const out = {};
+      let best = null;
+      const reach = vp.mpp * 18; // about 18 px
+      ctx.nav.waypoints.forEach((w) => { const d = geo.dist(cur.lat, cur.lon, w.lat, w.lon); if (d < reach && (!best || d < best.d)) best = { w, d }; });
+      out.wpt = best ? { title: 'Waypoint', wp: best.w, lines: [best.w.name + (best.w.code ? '  (' + best.w.code + ')' : ''), `${best.w.lat.toFixed(4)}°  ${best.w.lon.toFixed(4)}°`, `Elevation ${alt(best.w.elev || 0)}`] } : { title: 'Waypoint', lines: ['No waypoint nearby'] };
+      const zones = (ctx.nav.airspaces || []).filter((z) => { const l = LX.WarnGeo.toLocal(z, cur.lat, cur.lon); return LX.WarnGeo.horizontal(l, 0, 0).inside; });
+      zones.sort((a, b) => a.lower - b.lower);
+      out.asp = zones.length ? { title: 'Airspace', zone: zones[0], lines: zones.slice(0, 3).map((z) => `${z.name}  ${z.cls || ''}  ${alt(z.lower)} - ${alt(z.upper || 20000)}`) } : { title: 'Airspace', lines: ['No airspace here'] };
+      const elev = ctx.groundElev(cur);
+      out.pos = { title: 'Position', wp: { name: 'Cursor', code: '', lat: cur.lat, lon: cur.lon, elev: Math.round(elev), type: 'mark' }, lines: [`${cur.lat.toFixed(4)}°  ${cur.lon.toFixed(4)}°`, `Elevation ${alt(elev)}`, `${fm.dist(geo.dist(f.lat, f.lon, cur.lat, cur.lon))} ${LX.units.label('dist')}  brg ${fm.hdg(geo.bearing(f.lat, f.lon, cur.lat, cur.lon))}`] };
+      const auto = out.wpt.wp ? 'wpt' : out.asp.zone ? 'asp' : 'pos';
+      this.panInfoKind = this.panInfoIdx == null ? auto : ['wpt', 'asp', 'pos'][this.panInfoIdx % 3];
+      return out;
+    }
+    drawPan(c, vp, rect) {
+      const x = vp.cx, y = vp.cy;
+      c.save();
+      c.strokeStyle = '#2f9bff'; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(x - 20, y); c.lineTo(x + 20, y); c.moveTo(x, y - 20); c.lineTo(x, y + 20); c.stroke();
+      c.restore();
+      const info = this.panInfos()[this.panInfoKind];
+      const bx = 60, by = rect.y + 36, bw = Math.min(330, rect.w - bx - 90), lh = 19;
+      c.fillStyle = 'rgba(0,0,0,.78)'; c.fillRect(bx, by, bw, lh * (info.lines.length + 1) + 8);
+      c.strokeStyle = '#2f9bff'; c.lineWidth = 1; c.strokeRect(bx + .5, by + .5, bw, lh * (info.lines.length + 1) + 8);
+      sym.otext(c, info.title, bx + 8, by + 17, 14, { weight: 'normal', color: '#8fb6ff', align: 'left', halo: 'transparent' });
+      info.lines.forEach((t, i) => sym.otext(c, t, bx + 8, by + 17 + lh * (i + 1), 14, { weight: 'normal', align: 'left', halo: 'transparent' }));
+    }
+    panButton(label) {
+      const ctx = this.ctx, scr = this.scr, infos = this.panInfos(), info = infos[this.panInfoKind];
+      if (label === 'INFO') this.panInfoIdx = (['wpt', 'asp', 'pos'].indexOf(this.panInfoKind) + 1) % 3;
+      else if (label === 'CLOSE') this.leavePan();
+      else if (label === 'DISMISS' && info.zone) { ctx.warnings.dismiss(info.zone, 10, performance.now(), 'red'); scr.toast(`${info.zone.name} dismissed for 10 min`, 2000); }
+      else if (label === 'FREQ') scr.toast('FREQ: needs a radio bridge', 1500);
+      else if (label === 'GOTO' && (info.wp || infos.pos.wp)) {
+        const w = info.wp || infos.pos.wp;
+        ctx.nav.selected.apt = w; this.leavePan(); ctx.goMode('apt'); scr.toast(`Navigating to ${w.name}`, 1500);
+      }
       return true;
     }
 
     knob(name, dir) {
       if (this.kind === 'custom' && this.editing) return LX.layout.editKnob(this, name, dir);
-      if (this.panMode && !this.dragPan && (name === 'page' || name === 'zoom')) { // PAN key: knobs move the view; after a mouse drag they keep their normal meaning (zoom)
-        const step = ZOOMS[clamp(this.ctx.settings.get().mapZoom, 0, ZOOMS.length - 1)] * 100 * dir; // metres
-        if (name === 'page') this.pan.n += step; else this.pan.e += step;
+      if (this.panMode && this.canPan() && (name === 'page' || name === 'mode')) { // pan mode: PAGE moves the cross up/down, MODE left/right, ZOOM zooms
+        const step = this._vp.mpp * 24 * dir; // about 24 px per detent
+        if (name === 'page') this.panScreen(0, step); else this.panScreen(step, 0);
         return true;
       }
       if (name === 'zoom') {
+        if (this.panMode) { const s = this.ctx.settings; s.set({ mapZoom: clamp(s.get().mapZoom + dir, 0, ZOOMS.length - 1) }); return true; }
         if (this.kind === 'flarm') { const RR = 5, cur = this.radarRange !== undefined ? this.radarRange : 2; this.radarRange = clamp(cur + dir, 0, RR - 1); return true; }
         if (this.kind === 'apt' || this.kind === 'vario' || this.kind === 'meteo') return true;
         this.thermalOverride = true;
