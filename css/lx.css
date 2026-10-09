@@ -43,7 +43,7 @@ html, body { margin: 0; height: 100%; background: #0b0b0c; overflow: hidden; fon
   background: #000; border-radius: 3px; overflow: hidden;
   box-shadow: 0 0 0 3px #08090a, 0 0 0 5px #3a3c40;
 }
-#lcd { position: absolute; inset: 0; width: var(--lw); height: var(--lh); overflow: hidden; background: var(--lcd-bg); color: var(--ink); font-family: var(--font); }
+#lcd { touch-action: none; position: absolute; inset: 0; width: var(--lw); height: var(--lh); overflow: hidden; background: var(--lcd-bg); color: var(--ink); font-family: var(--font); }
 
 
 .brand { position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%); font: 600 8px var(--font); letter-spacing: .25em; color: #4a4d52; text-transform: uppercase; pointer-events: none; }

@@ -236,6 +236,7 @@
       } else if (i === 7) this.scr.close();
       return true;
     }
+    drag(dx, dy) { this.px += dx; this.py += dy; this.paint(); return true; }
     knob(name, dir) {
       if (name === 'page') { this.py += dir < 0 ? 60 : -60; if (this.drawn && this.py < -(this.drawn.h / this.drawn.k - this.H + 26)) { this.go(this.page + 1); } else if (this.py > 0 && dir < 0) { if (this.page > 1) { this.go(this.page - 1); this.py = -99999; } else this.py = 0; } this.paint(); return true; }
       if (name === 'zoom') { this.zoom = Math.max(1, Math.min(4, this.zoom + dir * 0.25)); this.dirty = true; return true; }

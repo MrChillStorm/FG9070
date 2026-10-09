@@ -21,6 +21,8 @@
  *   softkeys()         -> { labels: [8 x string|''], persist?: bool }
  *   button(i, long)    -> true | 'keep' (keep labels open) | false
  *   knob(name, dir)    -> true if consumed (else the screen does the default)
+ *   drag(dx, dy)       optional: pointer drag on the LCD (LCD pixels since the last call); return true to take the
+ *                      gesture (maps, PDF pages), otherwise it stays a swipe (mode/page change)
  *   resize()
  */
 (function (global) {
@@ -238,12 +240,23 @@
 
     /* -------------------------------------------------------------- gestures */
     _gestures() {
-      let start = null;
+      let start = null, last = null, dragging = false;
       this.lcd.addEventListener('pointerdown', (e) => {
         start = { x: e.clientX, y: e.clientY, t: performance.now() };
+        last = { x: e.clientX, y: e.clientY }; dragging = false;
+      });
+      this.lcd.addEventListener('pointermove', (e) => {
+        if (!start || !(e.buttons & 1 || e.pointerType === 'touch')) return;
+        const v = this.view, sc = LX.device.scale || 1;
+        if (!v || !v.drag) return;
+        if (!dragging && Math.hypot(e.clientX - start.x, e.clientY - start.y) / sc < 6) return;
+        const dx = (e.clientX - last.x) / sc, dy = (e.clientY - last.y) / sc;
+        last = { x: e.clientX, y: e.clientY };
+        if (v.drag(dx, dy)) dragging = true;
       });
       this.lcd.addEventListener('pointerup', (e) => {
         if (!start) return;
+        if (dragging) { start = null; dragging = false; return; }
         const sc = LX.device.scale || 1;
         const dx = (e.clientX - start.x) / sc, dy = (e.clientY - start.y) / sc;
         const dt = performance.now() - start.t;

@@ -307,6 +307,7 @@
         cx: rect.x + rect.w / 2, cy: rect.y + rect.h * (up === 'track' ? 0.62 : 0.52), up, night: s.night,
         originE: org.e, originN: org.n,
       };
+      this._vp = { up, track: f.track, mpp, t: performance.now() }; // for drag panning
       { // lat/lon box around the view (generous for track-up rotation) for the weather forecast grid
         const rad = Math.hypot(rect.w, rect.h) * mpp / 2, dLat = rad / 111320, dLon = rad / (111320 * Math.max(0.2, Math.cos(cLat * Math.PI / 180)));
         vp.box = { lat0: cLat - dLat, lat1: cLat + dLat, lon0: cLon - dLon, lon1: cLon + dLon };
@@ -751,6 +752,19 @@
         case '': return false;
         default: scr.toast(`${label}: not implemented`, 1800); return false;
       }
+    }
+
+    /** Dragging the map with the mouse / a finger pans it (the PAN function); PAN toggles it off again. */
+    drag(dx, dy) {
+      const vp = this._vp;
+      if (!vp || performance.now() - vp.t > 600 || (this.kind === 'custom' && this.editing)) return false;
+      if (!this.panMode) { this.panMode = true; this.pan = this.pan || { e: 0, n: 0 }; this.pan.e = 0; this.pan.n = 0; this.scr.toast('Map panned: press PAN to centre on the glider again', 2500); }
+      this.thermalOverride = true;
+      // the content follows the pointer, so the view centre moves the other way (screen frame: x right, y down)
+      let e = -dx * vp.mpp, n = dy * vp.mpp;
+      if (vp.up === 'track') { const a = vp.track * Math.PI / 180, s = Math.sin(a), c = Math.cos(a); const e2 = e * c + n * s, n2 = -e * s + n * c; e = e2; n = n2; }
+      this.pan.e += e; this.pan.n += n;
+      return true;
     }
 
     knob(name, dir) {
