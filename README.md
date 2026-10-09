@@ -129,7 +129,8 @@ distance** (3 TP) and a simplified FAI triangle.
 **Setup** (manual order) – QNH and RES, Flight Recorder, Weight and Balance, Vario Parameters,
 Display (brightness, orientation, night), Files and Transfer, Graphics (**Map and Terrain**: 14 terrain colour schemes, shadows, quality, offset, background, wind lines; **Glider and Track**: flown-path
 colouring by Mc / vario / altitude / ground speed, path length, track / target / collision options, range circles, glider
-range area; **Airspace** per-type zoom/colour/width/opacity and ceiling filter; **Waypoints and Airports** labels, max visible,
+range area; **Weather** (free services, off by default: Meteosat satellite from EUMETSAT, a coarse Open-Meteo forecast grid of
+cloud cover / CAPE / boundary-layer height / precipitation, RainViewer rain radar with animated history); **Airspace** per-type zoom/colour/width/opacity and ceiling filter; **Waypoints and Airports** labels, max visible,
 colourised reachability and short-runway crosses; **Thermal Mode**; the Optimization, Task, FLARM and Misc. looks), Sounds (Audio, Volumes,
 Voice, Alarms), Observation Zones (defaults + the manual's templates), Optimization, Warnings, Units,
 Hardware (Vario Unit/TE, Network, FLARM traffic source), Polar and Glider, Profiles and Pilots
@@ -165,7 +166,7 @@ implemented), SoaringSpot, SD/USB/Connect/Wi-Fi, passwords/admin, languages othe
 TO NANO (task declaration to a Nano recorder), the satellite sky view and FREQ on the info pages,
 centre-of-gravity limits in Weight and Balance, Save to SD, OLC points scoring, and per-symbol fonts in
 the layout editor. Found by a read-through of the manual's Setup chapters (7.1.1-7.1.12): in **QNH and RES** an independent
-Safety Mc, magnetic variation, the four ETA/ETE calculation methods and Soaring start; in **Graphics** (7.1.7) land-feature elements, label zoom, raster maps, weather layers (need an account), airspace
+Safety Mc, magnetic variation, the four ETA/ETE calculation methods and Soaring start; in **Graphics** (7.1.7) land-feature elements, label zoom, raster maps, airspace
 zones of inactive/NOTAM types and separate side-view styles and per-type waypoint label details are missing (Glider and Track, Thermal Mode, Optimization, Task, FLARM and
 Misc. exist, without Hawk Netto / engine colouring, the glide-ratio averaging time, flown task and AAT isolines, PCAS timeout,
 button proximity and font size); in **Hardware** the I8/I9 indicator setups,
@@ -193,8 +194,8 @@ Bridge 232, rear/front seat, angle of attack, engine, flaps and analog inputs. A
 
 Tests (plain `node`, no dependencies): `audio`, `flight` (TE, polar, MacCready, final glide), `demo`,
 `task` (zones, start/finish, ARM, PEV, AAT), `files` (CUP, OpenAir, OurAirports, OpenAIP, IGC),
-`warnings`, `optimizer` (+recorder), `ai`, `dem`, `sun`, `map` (path colouring), `openaip-proxy`.
-Online pieces without a key: Open-Meteo (meteogram), pdf.js from jsDelivr (PDF reader), OurAirports, OpenTopoMap, Terrarium. Run `npm test` (or `for t in tests/*.test.js; do node $t; done`) from this folder.
+`warnings`, `optimizer` (+recorder), `ai`, `dem`, `sun`, `map` (path colouring), `weather`, `openaip-proxy`.
+Online pieces without a key: Open-Meteo (meteogram, forecast layer), RainViewer and EUMETSAT EUMETView (weather layers; `tools/weather-probe.js` tests that they are reachable), pdf.js from jsDelivr (PDF reader), OurAirports, OpenTopoMap, Terrarium. Run `npm test` (or `for t in tests/*.test.js; do node $t; done`) from this folder.
 The FlightGear HTTP/WebSocket sources and small helpers in `js/shared/` come from the author's AeroPanel instrument-panel project (MIT) and were copied in so this folder is fully standalone.
 
 ## FlightGear properties used

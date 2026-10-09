@@ -30,6 +30,7 @@
 
   const ctx = {
     settings, flight, nav, audio, traffic, runner, warnings, recorder, dem,
+    weather: new LX.Weather(settings),
     history: [], flownDist: 0, ref: null, events: 0, rate: 0,
     srcStatus: { mode: 'idle', message: '', hz: 0 },
     sampleWall: 0,

@@ -307,6 +307,10 @@
         cx: rect.x + rect.w / 2, cy: rect.y + rect.h * (up === 'track' ? 0.62 : 0.52), up, night: s.night,
         originE: org.e, originN: org.n,
       };
+      { // lat/lon box around the view (generous for track-up rotation) for the weather forecast grid
+        const rad = Math.hypot(rect.w, rect.h) * mpp / 2, dLat = rad / 111320, dLon = rad / (111320 * Math.max(0.2, Math.cos(cLat * Math.PI / 180)));
+        vp.box = { lat0: cLat - dLat, lat1: cLat + dLat, lon0: cLon - dLon, lon1: cLon + dLon };
+      }
       // terrain check on the glide to the target, refreshed about once a second
       const nowT = performance.now();
       if (!this._tc || nowT - this._tc.t > 1000) this._tc = { t: nowT, v: nav ? this.ctx.dem.clearance(f, nav, s.safetyAlt, geo) : null };
@@ -324,6 +328,7 @@
         style: circling ? Object.assign({}, s, { pathLength: s.thermalPathLength, pathStyle: s.thermalPathStyle, pathWidth: s.thermalPathWidth }) : s,
         optTri: s.showOpt && s.showOptTriangle ? this.optTriangle() : null,
         wptInfo: this.wptInfoFn(f, s),
+        weather: this.ctx.weather ? this.ctx.weather.layers(vp, s) : null,
         traffic: this.ctx.traffic.relative(f, 0), pcas: this.ctx.traffic.pcas(), paths: this.ctx.traffic.paths(),
       });
       return { nav, up, tclear, scaleKm, mpp };

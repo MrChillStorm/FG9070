@@ -442,6 +442,39 @@
     });
   }
 
+  /* ------------------------------------------------- Setup > Graphics > Weather (7.1.7.2) */
+  function weatherSetup(scr, ctx) {
+    const wx = ctx.weather;
+    if (!wx.satLayers) wx.loadSatLayers();
+    const status = (k) => info('', () => wx.status[k], { wide: true });
+    return new FormView(scr, {
+      title: 'Weather',
+      live: true,
+      fields: [
+        section('Satellite (EUMETSAT Meteosat)'),
+        check('', 'wxSat', 'Show satellite layer'),
+        Object.assign({ type: 'select', label: 'Layer', options: [''].concat(wx.satLayers || []), wide: true, show: (v) => v || 'Automatic (' + (wx.satLayerName(S().get()) || 'loading') + ')' }, bind('wxSatLayer')),
+        spin('Opacity', 'wxSatOpacity', 10, 100, 10, (v) => v + '%', { coarse: 2 }),
+        status('sat'),
+        section('Forecast (Open-Meteo, coarse grid)'),
+        check('', 'wxFc', 'Show forecast layer'),
+        Object.assign({ type: 'select', label: 'Parameter', options: ['cloud_cover', 'cape', 'boundary_layer_height', 'precipitation'], show: (v) => ({ cloud_cover: 'Cloud cover', cape: 'CAPE (convective energy)', boundary_layer_height: 'Boundary layer height (thermal depth)', precipitation: 'Precipitation' }[v]), wide: true }, bind('wxFcParam')),
+        spin('Forecast time', 'wxFcOffset', 0, 24, 1, (v) => (v ? '+' + v + ' h' : 'now'), { coarse: 3 }),
+        spin('Opacity', 'wxFcOpacity', 10, 100, 10, (v) => v + '%', { coarse: 2 }),
+        status('fc'),
+        section('Rain radar (RainViewer)'),
+        check('', 'wxRain', 'Show rain radar'),
+        spin('Opacity', 'wxRainOpacity', 10, 100, 10, (v) => v + '%', { coarse: 2 }),
+        spin('History span', 'wxRainHistory', 0, 120, 10, (v) => (v ? v + ' min (animated)' : 'off'), { coarse: 3 }),
+        spin('Freeze present time', 'wxRainFreeze', 0, 10, 1, (v) => v + ' s'),
+        status('rain'),
+        section('All layers'),
+        spin('Minimum zoom distance', 'wxMinZoom', 0, 1000, 50, (v) => (v ? v + ' km' : 'always visible'), { coarse: 4 }),
+        section('Free services, no account. They need internet and are for training only, never for flight planning.'),
+      ],
+    });
+  }
+
   /* ----------------------------------------------------------- Setup > Graphics */
   function graphics(scr, ctx) {
     return new MenuView(scr, [
@@ -453,6 +486,7 @@
       { label: 'Optimization', color: '#ffd400', run: (s) => s.open(optimizationLook(s)) },
       { label: 'Task', color: '#ff2fd5', run: (s) => s.open(taskLook(s)) },
       { label: 'FLARM', color: '#5fd0ff', run: (s) => s.open(flarmLook(s)) },
+      { label: 'Weather', color: '#5fd0ff', run: (s) => s.open(weatherSetup(s, ctx)) },
       { label: 'Misc.', color: '#8a8f99', run: (s) => s.open(miscLook(s)) },
     ], { title: 'Graphics' });
   }

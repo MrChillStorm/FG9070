@@ -105,6 +105,24 @@
     return null;
   }
 
+  /** Cache for the weather overlay tiles (own concurrency limit; entries are keyed by layer + z/x/y). */
+  const rasterCache = new Map();
+  let rasterLoads = 0;
+  function rasterImage(L, z, x, y) {
+    const key = `${L.key}/${z}/${x}/${y}`;
+    let t = rasterCache.get(key);
+    if (t) return t.ok ? t.img : null;
+    if (rasterLoads >= 10) return null;
+    t = { img: new Image(), ok: false };
+    rasterCache.set(key, t);
+    rasterLoads++;
+    t.img.onload = () => { t.ok = true; rasterLoads--; };
+    t.img.onerror = () => { rasterLoads--; setTimeout(() => rasterCache.delete(key), 60000); };
+    t.img.src = L.urlFor(z, x, y);
+    if (rasterCache.size > 1500) rasterCache.delete(rasterCache.keys().next().value);
+    return null;
+  }
+
   const tileX = (lon, n) => ((lon + 180) / 360) * n;
   const tileY = (lat, n) => ((1 - Math.log(Math.tan(lat * D2R) + 1 / Math.cos(lat * D2R)) / Math.PI) / 2) * n;
   const tileLon = (x, n) => (x / n) * 360 - 180;
@@ -158,6 +176,7 @@
         this.drawBackdrop(c, vp, rot, st, data.f);
         if (vp.tiles && vp.tiles !== 'off') this.drawTiles(c, vp, toScreen);
       }
+      if (data.weather) this.drawWeather(c, vp, toScreen, data.weather);
       if (st.showWindLines && data.f) this.drawWindLines(c, vp, data.f);
       if (st.showRangeCircles !== false) this.drawRings(c, vp, st);
       if (data.range && st.showGlideArea) this.drawGlideArea(c, data.range, toScreen, vp, st);
@@ -236,6 +255,49 @@
       this.bgc.putImageData(this.img, 0, 0);
       c.imageSmoothingEnabled = true;
       c.drawImage(this.bg, R.x, R.y, R.w, R.h);
+    }
+
+    /** Weather overlays (7.1.7.2): raster layers (radar, satellite), forecast blobs, credits. */
+    drawWeather(c, vp, toScreen, wx) {
+      const R = vp.rect;
+      c.save();
+      (wx.rasters || []).forEach((L) => {
+        const z = tileZoom(vp.lat, vp.mpp, L.maxZoom), n = Math.pow(2, z);
+        const cx = Math.floor(tileX(vp.lon, n)), cy = Math.floor(tileY(vp.lat, n));
+        const tileM = (40075016.686 * Math.cos(vp.lat * D2R)) / n;
+        const span = Math.min(5, Math.ceil((Math.hypot(R.w, R.h) * vp.mpp) / 2 / tileM) + 1);
+        c.globalAlpha = L.alpha;
+        const order = [];
+        for (let dy = -span; dy <= span; dy++) for (let dx = -span; dx <= span; dx++) order.push([dx, dy]);
+        order.sort((a, b) => a[0] * a[0] + a[1] * a[1] - b[0] * b[0] - b[1] * b[1]); // tiles near the centre load first
+        for (const [dx, dy] of order) {
+          const x = cx + dx, y = cy + dy;
+          if (y < 0 || y >= n) continue;
+          const img = rasterImage(L, z, ((x % n) + n) % n, y);
+          if (!img) continue;
+          const tl = toScreen(tileLat(y, n), tileLon(x, n)), tr = toScreen(tileLat(y, n), tileLon(x + 1, n)), bl = toScreen(tileLat(y + 1, n), tileLon(x, n));
+          c.save();
+          c.transform((tr[0] - tl[0]) / 256, (tr[1] - tl[1]) / 256, (bl[0] - tl[0]) / 256, (bl[1] - tl[1]) / 256, tl[0], tl[1]);
+          c.drawImage(img, 0, 0, 256.6, 256.6);
+          c.restore();
+        }
+      });
+      if (wx.blobs && wx.blobs.length) {
+        // soft blobs, one per forecast grid point, as wide as the grid spacing
+        const spacing = Math.max(60, Math.hypot(R.w / 8, R.h / 6) * 0.9);
+        wx.blobs.forEach((b) => {
+          const [x, y] = toScreen(b.lat, b.lon), col = b.color;
+          if (col[3] <= 0.01) return;
+          const g = c.createRadialGradient(x, y, 0, x, y, spacing);
+          g.addColorStop(0, `rgba(${col[0] | 0},${col[1] | 0},${col[2] | 0},${col[3] * wx.blobAlpha})`);
+          g.addColorStop(1, `rgba(${col[0] | 0},${col[1] | 0},${col[2] | 0},0)`);
+          c.globalAlpha = 1; c.fillStyle = g; c.fillRect(x - spacing, y - spacing, spacing * 2, spacing * 2);
+        });
+      }
+      c.restore();
+      c.font = '8px Verdana, sans-serif'; c.textAlign = 'right'; c.fillStyle = 'rgba(0,0,0,.55)';
+      (wx.attr || []).forEach((t, i) => c.fillText(t, R.x + R.w - 3, R.y + R.h - 13 - i * 10));
+      c.textAlign = 'left';
     }
 
     /** Wind direction lines (manual 7.1.7.1): short strokes along the wind, longer for stronger wind. */
