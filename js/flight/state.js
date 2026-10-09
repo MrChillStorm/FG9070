@@ -40,7 +40,7 @@
     }
 
     reset() {
-      this.te.reset();
+      this.te.reset(); this._lps = {};
       this.have = false;
       this.seq = 0;
       this.lastPos = null; // { t, lat, lon }
@@ -136,12 +136,14 @@
       const vSrc = s.teSource === 'tas' ? f.tas : f.ias;
       const sinkNow = polar.sink(f.ias);
       f.sinkNow = sinkNow;
-      const o = this.te.update(tMs, f.vs, vSrc, sinkNow, s.needleTau, s.teComp / 100);
+      const o = this.te.update(tMs, f.vs, vSrc, sinkNow, s.needleTau, s.teComp / 100, s.nettoFilter);
       f.teRaw = o.raw;
       f.te = o.te;
       f.teFast = o.fast; // audio uses its own filter below
       f.netto = o.netto;
-      f.relative = o.netto;
+      // Relative (super netto) and the speed-to-fly input have their own filters (Setup > Vario Parameters)
+      f.relative = this._lp('rel', o.nettoInst === undefined ? o.netto : o.nettoInst, tMs, s.relTau);
+      const nettoSC = this._lp('sc', o.nettoInst === undefined ? o.netto : o.nettoInst, tMs, s.scTau);
       f.teSound = this._soundFilter(o.raw, tMs, s.soundTau);
       this.avgVario.w = s.integrator * 1000;
       this.avgNetto.w = s.nettoTime * 1000;
@@ -155,7 +157,7 @@
 
       // --- MacCready speed to fly (uses netto as air movement, SC filtered)
       const hw = this._headwindAlong(f.track);
-      f.stf = LX.polar.speedToFly(polar, s.mc, clamp(f.netto, -3, 3), hw);
+      f.stf = LX.polar.speedToFly(polar, s.mc, clamp(nettoSC, -3, 3), hw);
       f.stfDelta = f.ias - f.stf;
 
       // --- target navigation + final glide
@@ -166,6 +168,17 @@
 
       this.seq++;
       return f;
+    }
+
+    /** First-order low-pass with its own state per key (time constant tau in s). */
+    _lp(key, x, t, tau) {
+      const st = this._lps || (this._lps = {});
+      const p = st[key];
+      if (!p) { st[key] = { v: x, t }; return x; }
+      const dt = Math.max(0, (t - p.t) / 1000);
+      p.t = t;
+      p.v += (x - p.v) * (1 - Math.exp(-dt / Math.max(0.05, tau || 0.05)));
+      return p.v;
     }
 
     /* ------------------------------------------------------------------ sound */

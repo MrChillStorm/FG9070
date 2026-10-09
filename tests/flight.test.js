@@ -72,3 +72,15 @@ console.log('flight tests passed');
   assert.strictEqual(lt.call({ thermals: [] }), null);
   assert.strictEqual(lt.call({ thermals: [{ avg: 1 }, { avg: 3 }, { avg: 2.4 }] }), 2.4);
 }
+
+// Netto filter time constant (manual 7.1.4): a larger constant reacts more slowly
+{
+  const run = (nettoTau) => {
+    const t = new LX.TEVario(); let ms = 0, o;
+    for (let i = 0; i < 20; i++) { o = t.update(ms, 0, 30, 0.7, 1.5, 1, nettoTau); ms += 100; }       // still air: netto ~ 0.7
+    for (let i = 0; i < 10; i++) { o = t.update(ms, 2, 30, 0.7, 1.5, 1, nettoTau); ms += 100; }       // step into lift for 1 s
+    return o.netto;
+  };
+  assert.ok(run(0.2) > run(5), 'short netto filter follows a step faster than a long one');
+  assert.strictEqual(typeof new LX.TEVario().update(0, 0, 30, 0.7, 1.5, 1).raw, 'number', 'old call form still works');
+}

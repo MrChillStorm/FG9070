@@ -58,7 +58,7 @@
     varioRange: 5, // m/s full scale: 2.5 | 5 | 10
     scBand: 1.0, // m/s audio dead band in speed-to-fly mode
     integrator: 20, // s, average vario
-    nettoTau: 0.2,
+    nettoFilter: 1.5, // s; manual: default = same as the vario needle filter
     scTau: 1.5,
     relTau: 1.5,
     nettoTime: 20, // s, average netto
@@ -104,6 +104,7 @@
     sunsetAlarm: false,
     timeAlarm1: 0, timeAlarm2: 0, timeAlarm3: 0, // minutes of flight time, 0 = off
     warnWpt: 0, // m, 0 = off
+    flarmDismiss: 15, // s: how long CLOSE silences a FLARM warning (manual 7.1.12.4.2.2: 0-120 s)
     flarmWarn: 'Medium', // No alarm | Low | Medium | High
     flarmVoice: true, flarmVoiceH: true, flarmVoiceV: true, flarmBearing: 'relative', flarmGraphic: true, // FLARM warning content (manual 7.1.10.3)
     showPcas: true, trafficPaths: 'off', // PCAS circles for non-directional traffic; flown paths of other aircraft

@@ -67,7 +67,7 @@
         spin('Integrator time', 'integrator', 1, 60, 1, (v) => v + 'sec', { coarse: 5 }),
         select('Auto SC', 'autoSC', ['OFF', 'GPS', 'G-load', 'IAS']),
         check('', 'autoResetIntegrator', 'Auto reset integrator'),
-        spin('Netto filter', 'nettoTau', 0.1, 20, 0.1, sec, { coarse: 10 }),
+        spin('Netto filter', 'nettoFilter', 0.1, 20, 0.1, sec, { coarse: 10 }),
         spin('SC filter', 'scTau', 0.1, 20, 0.1, sec, { coarse: 10 }),
         spin('Relative filter', 'relTau', 0.1, 20, 0.1, sec, { coarse: 10 }),
         spin('Netto time', 'nettoTime', 1, 60, 1, (v) => v + 'sec', { coarse: 5 }),

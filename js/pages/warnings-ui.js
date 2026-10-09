@@ -180,7 +180,7 @@
           if (ctx.settings.get().flarmVoice && first.speech) LX.speech.say(first.speech, true);
           scr.open(new WarningView(scr, ctx, {
             level: fl.level >= 3 ? 'red' : 'orange', title: 'FLARM', state: stateOf, graphic: ctx.settings.get().flarmGraphic,
-            quit: () => { flarmMute.until = performance.now() + 15000; },
+            quit: () => { flarmMute.until = performance.now() + ctx.settings.get().flarmDismiss * 1000; },
             buttons: () => ({
               6: { label: 'CIRC.OFF', run: () => { flarmMute.until = performance.now() + 120000; scr.close(); } },
               7: { label: '1 min', run: () => { flarmMute.until = performance.now() + 60000; scr.close(); } },
@@ -218,6 +218,7 @@
         Object.assign({ type: 'select', label: 'Approaching', options: ['above', 'below'], show: (v) => (v === 'above' ? 'from below (climbing into it)' : 'from above (sinking into it)') }, bind('warnAltDir')),
       ]) },
       { label: 'FLARM Warnings', color: '#5fd0ff', run: form('FLARM Warnings', [
+        spin('Dismiss time', 'flarmDismiss', 0, 120, 5, (v) => v + ' s', { coarse: 4 }),
         Object.assign({ type: 'select', label: 'Alarm level', options: ['No alarm', 'Low', 'Medium', 'High'] }, bind('flarmWarn')),
         { type: 'section', label: 'Warning includes' },
         check('Horizontal distance', 'flarmVoiceH'),
