@@ -695,7 +695,7 @@
         case 'AIRSPACE': scr.open(LX.setup.airspaceList(scr, ctx)); return true;
         case 'FLARM': scr.open(LX.setup.flarmList(scr, ctx)); return true;
         case 'LAYOUT': scr.open(LX.layout.menu(scr, ctx, this)); return true;
-        case 'PAN': this.panMode = !this.panMode; this.pan = { e: 0, n: 0 }; scr.toast(this.panMode ? 'Pan: PAGE = north/south, ZOOM = east/west. Press PAN to exit' : 'Pan off', 2500); return false;
+        case 'PAN': this.panMode = !this.panMode; this.dragPan = false; this.pan = { e: 0, n: 0 }; scr.toast(this.panMode ? 'Pan: PAGE = north/south, ZOOM = east/west. Press PAN to exit' : 'Pan off', 2500); return false;
         case 'MARK': {
           const n = ctx.nav.waypoints.filter((w) => /^MARK/.test(w.name)).length + 1;
           ctx.nav.waypoints.push({ name: 'MARK' + n, code: 'MARK', lat: f.lat, lon: f.lon, elev: f.alt, type: 'mark' });
@@ -758,7 +758,7 @@
     drag(dx, dy) {
       const vp = this._vp;
       if (!vp || performance.now() - vp.t > 600 || (this.kind === 'custom' && this.editing)) return false;
-      if (!this.panMode) { this.panMode = true; this.pan = this.pan || { e: 0, n: 0 }; this.pan.e = 0; this.pan.n = 0; this.scr.toast('Map panned: press PAN to centre on the glider again', 2500); }
+      if (!this.panMode) { this.panMode = true; this.dragPan = true; this.pan = { e: 0, n: 0 }; this.scr.toast('Map panned: press PAN to centre on the glider again', 2500); }
       this.thermalOverride = true;
       // the content follows the pointer, so the view centre moves the other way (screen frame: x right, y down)
       let e = -dx * vp.mpp, n = dy * vp.mpp;
@@ -769,7 +769,7 @@
 
     knob(name, dir) {
       if (this.kind === 'custom' && this.editing) return LX.layout.editKnob(this, name, dir);
-      if (this.panMode && (name === 'page' || name === 'zoom')) {
+      if (this.panMode && !this.dragPan && (name === 'page' || name === 'zoom')) { // PAN key: knobs move the view; after a mouse drag they keep their normal meaning (zoom)
         const step = ZOOMS[clamp(this.ctx.settings.get().mapZoom, 0, ZOOMS.length - 1)] * 100 * dir; // metres
         if (name === 'page') this.pan.n += step; else this.pan.e += step;
         return true;
