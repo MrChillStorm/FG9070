@@ -765,7 +765,7 @@
     canPan() { const vp = this._vp; return !!vp && performance.now() - vp.t < 600 && !(this.kind === 'custom' && this.editing); }
     enterPan() {
       if (!this.canPan()) return false;
-      if (!this.panMode) { this.panMode = true; this.pan = { e: 0, n: 0 }; this.panInfoIdx = null; this.scr.toast('Pan: PAGE up/down, MODE left/right, ZOOM zooms. CLOSE leaves', 3000); }
+      if (!this.panMode) { this.panMode = true; this.pan = { e: 0, n: 0 }; this.panInfoIdx = null; this.scr.toast('Pan: PAGE up/down, MODE left/right, ZOOM zooms. CLOSE leaves', 3000); this.scr._refreshSoftkeys(true); } // show the pan buttons at once (a drag or long press has no button press to do that)
       return true;
     }
     /** Move the view centre (= the blue cross) by metres in the screen frame: sx right, sy up. */
@@ -782,7 +782,7 @@
       return true;
     }
     longPress() { return this.enterPan(); }
-    leavePan() { this.panMode = false; this.pan = { e: 0, n: 0 }; }
+    leavePan() { this.panMode = false; this.pan = { e: 0, n: 0 }; this.scr._refreshSoftkeys(true); }
 
     /** What is under the cross: nearby waypoint, airspace zones, or the position itself. */
     panInfos() {
