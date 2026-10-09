@@ -110,16 +110,23 @@
 
     /* ------------------------------------------------------------------- satellite */
     async loadSatLayers() {
-      if (this._busy.sat || this.satLayers) return;
+      if (this._busy.sat || (this.satLayers && Date.now() - (this.satFetched || 0) < 900000)) return;
       this._busy.sat = true;
       try {
         const r = await fetch(`${EUMET}?service=WMS&version=1.3.0&request=GetCapabilities`);
         if (!r.ok) throw new Error('HTTP ' + r.status);
         const xml = new DOMParser().parseFromString(await r.text(), 'text/xml');
         const names = [...xml.querySelectorAll('Layer > Name')].map((n) => n.textContent.trim());
+        // the time each layer currently offers (its default); asking without it can give HTTP 500 for products with gaps
+        this.satTimes = this.satTimes || {};
+        xml.querySelectorAll('Layer').forEach((L) => {
+          const n = L.querySelector(':scope > Name'), d = L.querySelector(':scope > Dimension[name="time" i]');
+          if (n && d && d.getAttribute('default')) this.satTimes[n.textContent.trim()] = d.getAttribute('default');
+        });
+        this.satFetched = Date.now();
         // real layers are workspace-qualified (msg_fes:ir108); keep the full-disc Meteosat ones
         this.satLayers = [...new Set(names.filter((n) => /^(msg_fes|msg_iodc|mtg_fd):/.test(n)))].sort();
-        this.status.sat = this.satLayers.length + ' Meteosat layers';
+        this.status.sat = this.satLayers.length + ' Meteosat layers (list refreshed ' + new Date().toISOString().slice(11, 16) + 'Z)';
         if (this.onSatLayers) this.onSatLayers();
       } catch (e) { this.status.sat = 'failed: ' + e.message; setTimeout(() => { this._busy.sat = false; }, 300000); return; }
       this._busy.sat = false;
@@ -134,7 +141,8 @@
     satLayerName(s) {
       const ls = this.satLayers || [];
       if (s.wxSatLayer && ls.indexOf(s.wxSatLayer) >= 0) return s.wxSatLayer;
-      for (const re of [/^msg_fes:.*natural/i, /^msg_fes:.*ir_?108/i, /^msg_fes:.*hrv/i, /^msg_fes:/]) { const m = ls.find((n) => re.test(n)); if (m) return m; }
+      // infrared first: it has data day and night (natural colour and HRV are daytime products)
+      for (const re of [/^msg_fes:.*ir_?108/i, /^msg_fes:.*natural/i, /^msg_fes:.*hrv/i, /^msg_fes:/]) { const m = ls.find((n) => re.test(n)); if (m) return m; }
       return null;
     }
 
@@ -211,10 +219,10 @@
       if (s.wxMinZoom > 0 && widthKm < s.wxMinZoom) return out; // only visible when zoomed out far enough
       const now = Date.now();
       if (s.wxSat) {
-        if (!this.satLayers) this.loadSatLayers();
+        this.loadSatLayers(); // (re)loads the layer list when it is missing or 15 minutes old
         const name = this.satLayerName(s);
         if (name) {
-          out.rasters.push({ key: 'sat/' + name, maxZoom: 9, alpha: (s.wxSatOpacity || 70) / 100, urlFor: (z, x, y) => `${EUMET}?service=WMS&version=1.3.0&request=GetMap&layers=${encodeURIComponent(name)}&styles=&format=image/png&transparent=true&crs=EPSG:3857&width=256&height=256&bbox=${tileBBox(z, x, y)}` });
+          out.rasters.push({ key: 'sat/' + name + '/' + ((this.satTimes && this.satTimes[name]) || ''), maxZoom: 9, alpha: (s.wxSatOpacity || 70) / 100, urlFor: (z, x, y) => `${EUMET}?service=WMS&version=1.3.0&request=GetMap&layers=${encodeURIComponent(name)}&styles=&format=image/png&transparent=true&crs=EPSG:3857&width=256&height=256&bbox=${tileBBox(z, x, y)}${this.satTimes && this.satTimes[name] ? '&time=' + encodeURIComponent(this.satTimes[name]) : ''}` });
           out.attr.push('© EUMETSAT');
         }
       }

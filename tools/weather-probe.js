@@ -73,6 +73,13 @@ async function probe(name, fn) {
     const want = names.filter((n) => /msg|mtg|meteosat|natural|airmass|ir108|ir_108|cloud|dust|fog|hrv/i.test(n));
     say(`  ${names.length} layers; matching (${want.length}):`);
     want.slice(0, 30).forEach((n) => say('    ' + n));
+    // ask for real map images too: a layer can be listed and still fail (HTTP 500 when it has no data for "now")
+    const tryLayers = want.filter((n) => /^msg_fes:/.test(n) && /ir108|ir_108|natural|hrv|clm/i.test(n)).slice(0, 6);
+    for (const n of tryLayers) {
+      const g = await get(`https://view.eumetsat.int/geoserver/wms?service=WMS&version=1.3.0&request=GetMap&layers=${encodeURIComponent(n)}&styles=&format=image/png&transparent=true&crs=EPSG:3857&width=256&height=256&bbox=626172.1357,5009377.0857,1252344.2714,5635549.2215`);
+      const ct = g.r.headers.get('content-type') || '';
+      say(`  GetMap ${n}: HTTP ${g.r.status}, ${ct}${g.r.ok && /image/.test(ct) ? '' : '  ' + (await g.r.text()).replace(/\s+/g, ' ').slice(0, 160)}`);
+    }
   });
 
   await probe('Open-Meteo (forecast grid for a gridded overlay)', async () => {

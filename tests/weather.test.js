@@ -25,9 +25,9 @@ const seen = new Set(); for (let t = 0; t < 4 * 600 + 3000; t += 100) seen.add(w
 assert.ok(seen.has('/p0') && seen.has('/p3'), 'the loop covers the 30 minute span');
 assert.strictEqual(wx.rainFrame(4 * 600 + 100, { wxRainHistory: 30, wxRainFreeze: 3 }).path, '/p3', 'newest frame is held during the freeze time');
 
-// satellite layer choice: the chosen one, else natural colour / IR 10.8 / HRV / first
+// satellite layer choice: the chosen one, else IR 10.8 / natural colour / HRV / first
 wx.satLayers = ['msg_fes:hrv', 'msg_fes:ir108', 'msg_fes:rgb_naturalenhncd', 'mtg_fd:vis'];
-assert.strictEqual(wx.satLayerName({}), 'msg_fes:rgb_naturalenhncd');
+assert.strictEqual(wx.satLayerName({}), 'msg_fes:ir108', 'infrared first: it has data day and night');
 assert.strictEqual(wx.satLayerName({ wxSatLayer: 'mtg_fd:vis' }), 'mtg_fd:vis');
 wx.satLayers = ['msg_fes:ir039', 'msg_fes:hrv'];
 assert.strictEqual(wx.satLayerName({}), 'msg_fes:hrv');
@@ -96,3 +96,13 @@ console.log('weather label tests passed');
   assert.ok(blobs && blobs.length === cells.length && blobs[0].color[3] > 0.5, 'blobs for every cell, cloudy = opaque');
   console.log('forecast grid tests passed');
 })().catch((e) => { console.error(e); process.exit(1); });
+
+// satellite requests carry the time the service offers (a bare request can give HTTP 500 for products with gaps)
+{
+  const w = new LX.Weather({ get: () => ({}) });
+  w.satLayers = ['msg_fes:ir108']; w.satFetched = Date.now(); w.satTimes = { 'msg_fes:ir108': '2026-10-09T10:00:00.000Z' };
+  const L = w.layers({ rect: { w: 800, h: 480 }, mpp: 100 }, { wxSat: true }).rasters[0];
+  assert.ok(/[?&]time=2026-10-09T10%3A00%3A00\.000Z/.test(L.urlFor(5, 17, 11)), 'time parameter present');
+  assert.ok(/layers=msg_fes%3Air108/.test(L.urlFor(5, 17, 11)));
+  console.log('satellite time tests passed');
+}
