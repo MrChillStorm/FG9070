@@ -396,8 +396,7 @@
       const r = portrait ? Math.min(W / 2 - 50, 190) : Math.min(area.h / 2 - 6, 200);
       const cx = portrait ? W / 2 - 30 : r + 20;
       const cy = area.y + (portrait ? r + 10 : area.h / 2);
-      // needle shows TE in climb mode, speed-to-fly relative in cruise (simplified: netto)
-      const value = f.mode === 'vario' ? f.te : f.te;
+      const value = sym.needleValue(f, s); // Setup > Hardware > Vario Indicator Setup
       sym.varioIndicator(c, cx, cy, r, f, {
         range: s.varioRange, value, mc: s.mc, avg: f.avgV, thermalAvg: this.ctx.flight.lastThermalAvg(),
       });

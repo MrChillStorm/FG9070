@@ -150,7 +150,7 @@ Hardware (Vario Unit/TE, Network, FLARM traffic source), Polar and Glider, Profi
   explicit; the exact button positions, fonts, icons, beep timing of the vario audio, the digital
   steps and the SC value scale are my best approximations. Glider **polars are approximate**
   (ASK 21, MDM-1, two generic): enter yours in `js/flight/polar.js`.
-- Airspace limits are treated as MSL (AGL limits are not resolved against terrain). Relative ("super netto") is netto minus the polar's minimum sink rate (manual 10.7.3, classical-vario formula; no HAWK).
+- Airspace limits are treated as MSL (AGL limits are not resolved against terrain). The needle and tape of the vario page can show vario, netto or relative, set separately for climb and cruise (Setup → Hardware → Vario Indicator Setup); the speed-to-fly (SC) needle is not available. Relative ("super netto") is netto minus the polar's minimum sink rate (manual 10.7.3, classical-vario formula; no HAWK).
 - The optimiser is a simplified OLC/FAI tool (distance only, no scoring rules, triangle vertices on
   track points). IGC files from here are not valid for any badge/record/contest.
 - IAS is FlightGear's `/velocities/airspeed-kt`; wind comes from the sim's environment, not from a

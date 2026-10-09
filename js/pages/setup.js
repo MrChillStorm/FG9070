@@ -240,12 +240,25 @@
     });
   }
 
+  /* Setup > Hardware > Vario Indicator Setup (7.1.12.4.1): what the needle shows in climb and in cruise mode */
+  function varioIndicatorSetup(scr) {
+    const OPTS = ['vario', 'netto', 'relative'], NAMES = { vario: 'Vario', netto: 'Netto', relative: 'Relative (super netto)' };
+    return new FormView(scr, {
+      title: 'Vario Indicator Setup',
+      fields: [
+        select('Needle in climb', 'needleClimb', OPTS, (v) => NAMES[v], { wide: true }),
+        select('Needle in cruise', 'needleCruise', OPTS, (v) => NAMES[v], { wide: true }),
+        section('Applies to the needle and tape of the vario page. The speed-to-fly (SC) needle is not available yet.'),
+      ],
+    });
+  }
+
   function hardwareMenu(scr, ctx) {
     const stub = (n) => (s) => notImplemented(s, n);
     return new MenuView(scr, [
       { label: 'Vario Unit Settings (TE comp.)', color: '#6ee06e', run: (s) => s.open(varioUnit(s)) },
       { label: 'Network (FlightGear)', color: '#5fd0ff', run: (s) => s.open(network(s, ctx)) },
-      { label: 'Vario Indicator Setup', color: '#8a8f99', run: stub('Vario Indicator Setup') },
+      { label: 'Vario Indicator Setup', color: '#6ee06e', run: (s) => s.open(varioIndicatorSetup(s)) },
       { label: 'FLARM (traffic source)', color: '#5fd0ff', run: (s) => s.open(flarmHw(s, ctx)) },
       { label: 'Remote Stick', color: '#8a8f99', run: stub('Remote Stick') },
       { label: 'AHRS', color: '#8a8f99', run: stub('AHRS') },

@@ -133,6 +133,12 @@
    * Round vario indicator (8.3.22): needle, red diamond = average climb, blue
    * arrow = MacCready, green T = last thermal average, mode icon.
    */
+  /** Value the needle shows: vario (TE), netto or relative, chosen separately for climb and cruise (7.1.12.4.1). */
+  function needleValue(f, s) {
+    const which = f.mode === 'vario' ? s.needleClimb : s.needleCruise;
+    return which === 'netto' ? f.netto : which === 'relative' ? f.relative : f.te;
+  }
+
   function varioIndicator(c, cx, cy, r, f, o) {
     const range = o.range;
     const a0 = -120, a1 = 120; // degrees from 12 o'clock
@@ -317,5 +323,5 @@
     c.restore();
   }
 
-  LX.symbols = { otext, finalGlide, windThermal, zoomScale, northArrow, varioIndicator, varioTape, sideView, flarmRadar, flarmSymbol, flarmColor, setFlarmColors, gpsBars };
+  LX.symbols = { otext, finalGlide, windThermal, zoomScale, northArrow, varioIndicator, varioTape, needleValue, sideView, flarmRadar, flarmSymbol, flarmColor, setFlarmColors, gpsBars };
 })(window);
