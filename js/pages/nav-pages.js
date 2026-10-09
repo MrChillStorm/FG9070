@@ -289,6 +289,8 @@
       }
       if (!thermal) this.thermalOverride = false;
       const circling = thermal && !this.thermalOverride;
+      if (this.panMode && this._wasCircling !== undefined && circling !== this._wasCircling) this.leavePan(); // thermal mode is a different page on the unit: panning ends with the switch
+      this._wasCircling = circling;
       let zi = clamp(s.mapZoom, 0, ZOOMS.length - 1);
       if (circling) zi = clamp(s.thermalZoom === undefined ? 1 : s.thermalZoom, 0, ZOOMS.length - 1);
       const scaleKm = ZOOMS[zi];
