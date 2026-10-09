@@ -172,6 +172,7 @@ Misc. exist, without Hawk Netto / engine colouring, the glide-ratio averaging ti
 button proximity and font size); in **Hardware** the I8/I9 indicator setups,
 Bridge 232, rear/front seat, angle of attack, engine, flaps and analog inputs. Airspace has no keyless download source I could verify – load a file
 (Setup → Files and Transfer → Airspace lists the free websites).
+In **Polar and Glider** (7.1.13) only the four built-in gliders can be chosen: there is no editing of the a/b/c polar coefficients or reference weight, no list of several stored gliders, no glider speeds / flap labels (stall warning), no dump-rate table and no .lxg load/save.
 
 ## Layout
 
