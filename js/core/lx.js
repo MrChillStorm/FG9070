@@ -55,6 +55,7 @@
     teSource: 'ias', // 'ias' (realistic, default) | 'tas' (high-accuracy mode)
     teComp: 100, // % digital TE compensation (100 = fully compensated)
     // Setup > Vario Parameters (manual defaults)
+    needleClimb: 'vario', needleCruise: 'vario', // what the needle shows in climb / cruise mode (Setup > Hardware > Vario Indicator Setup)
     needleTau: 1.5, // s
     soundTau: 1.5, // s
     varioRange: 5, // m/s full scale: 2.5 | 5 | 10
