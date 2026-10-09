@@ -127,7 +127,9 @@ by altitude / speed / climb, barogram, statistics, optimisation), **IGC export**
 distance** (3 TP) and a simplified FAI triangle.
 
 **Setup** (manual order) – QNH and RES, Flight Recorder, Weight and Balance, Vario Parameters,
-Display (brightness, orientation, night), Files and Transfer, Graphics, Sounds (Audio, Volumes,
+Display (brightness, orientation, night), Files and Transfer, Graphics (Map and Terrain, **Glider and Track**: flown-path
+colouring by Mc / vario / altitude / ground speed, path length, track / target / collision options, range circles, glider
+range area), Sounds (Audio, Volumes,
 Voice, Alarms), Observation Zones (defaults + the manual's templates), Optimization, Warnings, Units,
 Hardware (Vario Unit/TE, Network, FLARM traffic source), Polar and Glider, Profiles and Pilots
 (save/switch/rename/export), About.
@@ -165,8 +167,8 @@ centre-of-gravity limits in Weight and Balance, Save to SD, OLC points scoring, 
 the layout editor. Found by a read-through of the manual's Setup chapters (7.1.1-7.1.12): in **QNH and RES** an independent
 Safety Mc, magnetic variation, the four ETA/ETE calculation methods and Soaring start; in **Graphics** (7.1.7) only a
 few switches exist, so terrain colour schemes and land-feature elements, weather layers (need an account), airspace
-type styling and filters, waypoint label details and runway filters, flown-path colouring styles, the track/target
-line options, range circles and the glider range area are all missing; in **Hardware** the I8/I9 indicator setups,
+type styling and filters and waypoint label details and runway filters are missing (Glider and Track is done, apart from
+the averaging time for the current glide ratio, the Hawk Netto path style and engine colouring); in **Hardware** the I8/I9 indicator setups,
 Bridge 232, rear/front seat, angle of attack, engine, flaps and analog inputs. Airspace has no keyless download source I could verify – load a file
 (Setup → Files and Transfer → Airspace lists the free websites).
 
@@ -191,7 +193,7 @@ Bridge 232, rear/front seat, angle of attack, engine, flaps and analog inputs. A
 
 Tests (plain `node`, no dependencies): `audio`, `flight` (TE, polar, MacCready, final glide), `demo`,
 `task` (zones, start/finish, ARM, PEV, AAT), `files` (CUP, OpenAir, OurAirports, OpenAIP, IGC),
-`warnings`, `optimizer` (+recorder), `ai`, `dem`, `sun`.
+`warnings`, `optimizer` (+recorder), `ai`, `dem`, `sun`, `map` (path colouring), `openaip-proxy`.
 Online pieces without a key: Open-Meteo (meteogram), pdf.js from jsDelivr (PDF reader), OurAirports, OpenTopoMap, Terrarium. Run `npm test` (or `for t in tests/*.test.js; do node $t; done`) from this folder.
 The FlightGear HTTP/WebSocket sources and small helpers in `js/shared/` come from the author's AeroPanel instrument-panel project (MIT) and were copied in so this folder is fully standalone.
 
