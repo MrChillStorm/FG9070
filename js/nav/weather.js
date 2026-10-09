@@ -73,7 +73,7 @@
       this.S = settings;
       this.rain = null;        // { host, frames: [{ time, path }], fetched }
       this.satLayers = null;   // layer names from EUMETView, null until loaded
-      this.fc = null;          // { key, t, pts: [{ lat, lon, vals: [...] }], times: [...] }
+      this.fcCache = new Map(); // lattice cell -> { t, times, vals } (see loadForecast)
       this.status = { rain: 'off', sat: 'off', fc: 'off' };
       this._busy = {};
     }
@@ -139,34 +139,65 @@
     }
 
     /* -------------------------------------------------------------------- forecast */
-    /** Grid of forecast points over the visible area (8 x 6), refetched when the view moves or after 15 min. */
-    async loadForecast(vp, box, s) {
-      const param = s.wxFcParam || 'cloud_cover';
-      const key = `${param}/${box.lat0.toFixed(1)}/${box.lon0.toFixed(1)}/${(box.lat1 - box.lat0).toFixed(1)}`;
-      if (this._busy.fc || (this.fc && this.fc.key === key && Date.now() - this.fc.t < 900000)) return;
+    /*
+     * Open-Meteo counts every location as one API call (free tier: 600 per minute, 10000 per day), so the forecast grid
+     * is a FIXED lattice (cells snapped to 0.1 ... 8 degrees by zoom). Cells are cached for an hour and shared by
+     * every parameter, a request carries at most 30 missing cells, requests are 6 s apart, and a failure
+     * (HTTP 429 or network) pauses all forecast requests for 1 or 5 minutes.
+     */
+    static fcStep(box) {
+      const raw = Math.max(box.lat1 - box.lat0, box.lon1 - box.lon0) / 8;
+      return [0.1, 0.25, 0.5, 1, 2, 4, 8].find((v) => v >= raw) || 8;
+    }
+
+    /** Lattice cells (centres) inside the box: [{ key, lat, lon }]. */
+    static fcCells(box, step) {
+      const out = [];
+      for (let i = Math.floor(box.lat0 / step); i <= Math.ceil(box.lat1 / step); i++) {
+        for (let j = Math.floor(box.lon0 / step); j <= Math.ceil(box.lon1 / step); j++) out.push({ key: `${step}/${i}/${j}`, lat: +(i * step).toFixed(3), lon: +(j * step).toFixed(3) });
+      }
+      return out;
+    }
+
+    async loadForecast(vp, box) {
+      const now = Date.now();
+      if (this._busy.fc || now < (this.fcFailUntil || 0) || now < (this.fcNext || 0)) return;
+      const cache = this.fcCache || (this.fcCache = new Map());
+      let step = Weather.fcStep(box), cells = Weather.fcCells(box, step);
+      while (cells.length > 80 && step < 8) { step = [0.1, 0.25, 0.5, 1, 2, 4, 8][[0.1, 0.25, 0.5, 1, 2, 4, 8].indexOf(step) + 1] || 8; cells = Weather.fcCells(box, step); }
+      const missing = cells.filter((c) => !cache.has(c.key) || now - cache.get(c.key).t > 3600000).slice(0, 30);
+      if (!missing.length) return;
       this._busy.fc = true;
+      this.fcNext = now + 6000; // 30 cells per 6 s = at most 300 locations a minute (the free limit is 600)
       try {
-        const NX = 8, NY = 6, lats = [], lons = [];
-        for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
-          lats.push((box.lat1 - (box.lat1 - box.lat0) * (j + 0.5) / NY).toFixed(3));
-          lons.push((box.lon0 + (box.lon1 - box.lon0) * (i + 0.5) / NX).toFixed(3));
-        }
-        const j = await this._json(`${OPEN_METEO}?latitude=${lats.join(',')}&longitude=${lons.join(',')}&hourly=${param}&forecast_days=2&timezone=GMT`);
+        const q = 'cloud_cover,cape,boundary_layer_height,precipitation';
+        const r = await fetch(`${OPEN_METEO}?latitude=${missing.map((c) => c.lat).join(',')}&longitude=${missing.map((c) => c.lon).join(',')}&hourly=${q}&forecast_days=2&timezone=GMT`);
+        if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+        const j = await r.json();
         const arr = Array.isArray(j) ? j : [j];
-        const pts = arr.map((o, i) => ({ lat: +lats[i], lon: +lons[i], vals: o.hourly[param] }));
-        this.fc = { key, t: Date.now(), pts, times: arr[0].hourly.time, param };
-        this.status.fc = `${pts.length} points, ${param}`;
-      } catch (e) { this.status.fc = 'failed: ' + e.message; this.fc = this.fc ? Object.assign(this.fc, { t: Date.now() - 600000 }) : null; }
+        arr.forEach((o, i) => cache.set(missing[i].key, { t: Date.now(), times: o.hourly.time, vals: o.hourly }));
+        if (cache.size > 600) cache.delete(cache.keys().next().value);
+        this.status.fc = `${cache.size} grid cells cached`;
+      } catch (e) {
+        this.fcFailUntil = Date.now() + (e.status === 429 ? 300000 : 60000);
+        this.status.fc = e.status === 429 ? 'Open-Meteo says too many requests; pausing 5 min' : 'failed: ' + e.message + '; retrying in 1 min';
+      }
       this._busy.fc = false;
     }
 
-    /** Forecast blobs for the hour `offsetH` from now: [{ lat, lon, color }] or null. */
-    fcBlobs(offsetH, s) {
-      if (!this.fc) return null;
-      const want = new Date(Date.now() + offsetH * 3600000).toISOString().slice(0, 13); // YYYY-MM-DDTHH
-      let idx = this.fc.times.findIndex((t) => t.slice(0, 13) === want);
-      if (idx < 0) idx = Math.min(this.fc.times.length - 1, Math.max(0, offsetH));
-      return this.fc.pts.map((p) => ({ lat: p.lat, lon: p.lon, color: fcColor(this.fc.param, p.vals[idx]) }));
+    /** Forecast blobs for the hour `offsetH` from now and the parameter in `s`: [{ lat, lon, color }] or null. */
+    fcBlobs(offsetH, s, box) {
+      if (!this.fcCache || !box) return null;
+      const param = s.wxFcParam || 'cloud_cover', want = new Date(Date.now() + offsetH * 3600000).toISOString().slice(0, 13);
+      const step = Weather.fcStep(box), out = [];
+      Weather.fcCells(box, step).forEach((c) => {
+        const e = this.fcCache.get(c.key);
+        if (!e || !e.vals[param]) return;
+        let idx = e.times.findIndex((t) => t.slice(0, 13) === want);
+        if (idx < 0) idx = Math.min(e.times.length - 1, Math.max(0, offsetH));
+        out.push({ lat: c.lat, lon: c.lon, color: fcColor(param, e.vals[param][idx]) });
+      });
+      return out.length ? out : null;
     }
 
     /**
@@ -196,8 +227,8 @@
         }
       }
       if (s.wxFc && vp.box) {
-        this.loadForecast(vp, vp.box, s);
-        out.blobs = this.fcBlobs(s.wxFcOffset || 0, s);
+        this.loadForecast(vp, vp.box);
+        out.blobs = this.fcBlobs(s.wxFcOffset || 0, s, vp.box);
         out.blobAlpha = (s.wxFcOpacity || 60) / 100;
         if (out.blobs) out.attr.push('Open-Meteo.com');
       }

@@ -55,3 +55,44 @@ wx2.satLayers = ['msg_fes:ir108', 'msg_fes:something_odd', 'msg_iodc:ir108', 'ms
 assert.deepStrictEqual(wx2.satOptions(false), ['msg_fes:ir108', 'msg_fes:hrv'], 'default list: known layers, no Indian Ocean');
 assert.strictEqual(wx2.satOptions(true).length, 4, 'all layers on request');
 console.log('weather label tests passed');
+
+// forecast grid: fixed lattice, cached cells, no request storm (Open-Meteo counts each location as one call)
+(async () => {
+  const box = { lat0: 45.5, lat1: 47.1, lon0: 13.1, lon1: 15.3 };
+  assert.strictEqual(LX.Weather.fcStep(box), 0.5, '8 cells across 2.2 degrees is 0.275 -> the 0.5 degree lattice');
+  const cells = LX.Weather.fcCells(box, 0.5);
+  assert.ok(cells.every((c) => Math.abs(c.lat / 0.5 - Math.round(c.lat / 0.5)) < 1e-6), 'cell centres sit on the lattice');
+  // the same cells come back after a small pan (cache keys are stable)
+  const pan = LX.Weather.fcCells({ lat0: 45.52, lat1: 47.12, lon0: 13.12, lon1: 15.32 }, 0.5);
+  assert.ok(pan.filter((c) => cells.some((d) => d.key === c.key)).length >= cells.length - 12, 'panning reuses most cells');
+
+  // a failed request (HTTP 429) pauses everything: 30 calls -> exactly one request
+  let calls = 0;
+  global.fetch = async () => { calls++; return { ok: false, status: 429 }; };
+  const w = new LX.Weather({ get: () => ({}) });
+  for (let i = 0; i < 30; i++) await w.loadForecast({}, box);
+  assert.strictEqual(calls, 1, 'one request, then a pause');
+  assert.ok(/too many requests/.test(w.status.fc));
+
+  // success: at most 48 cells per request, requests are spaced, then cells are cached (no refetch)
+  const urls = [];
+  global.fetch = async (u) => {
+    urls.push(u);
+    const n = new URL(u).searchParams.get('latitude').split(',').length;
+    const times = Array.from({ length: 48 }, (_, i) => new Date(Date.UTC(2026, 9, 9, i % 24)).toISOString().slice(0, 13) + ':00');
+    return { ok: true, status: 200, json: async () => Array.from({ length: n }, () => ({ hourly: { time: times, cloud_cover: times.map(() => 80), cape: times.map(() => 0), boundary_layer_height: times.map(() => 1000), precipitation: times.map(() => 0) } })) };
+  };
+  const w2 = new LX.Weather({ get: () => ({}) });
+  await w2.loadForecast({}, box);
+  assert.strictEqual(urls.length, 1);
+  assert.ok(new URL(urls[0]).searchParams.get('latitude').split(',').length <= 30, 'at most 30 cells per request');
+  await w2.loadForecast({}, box); // within 6 s: nothing
+  assert.strictEqual(urls.length, 1, 'requests are spaced');
+  w2.fcNext = 0;
+  while (w2.fcCache.size < cells.length) { const before = urls.length; await w2.loadForecast({}, box); w2.fcNext = 0; if (urls.length === before) break; }
+  const n1 = urls.length; w2.fcNext = 0; await w2.loadForecast({}, box);
+  assert.strictEqual(urls.length, n1, 'everything cached: no more requests');
+  const blobs = w2.fcBlobs(0, { wxFcParam: 'cloud_cover' }, box);
+  assert.ok(blobs && blobs.length === cells.length && blobs[0].color[3] > 0.5, 'blobs for every cell, cloudy = opaque');
+  console.log('forecast grid tests passed');
+})().catch((e) => { console.error(e); process.exit(1); });
