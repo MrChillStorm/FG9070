@@ -262,9 +262,9 @@
   }
 
   /* ----------------------------------------------------------- Setup > Graphics */
-  function graphics(scr) {
+  function mapAndTerrain(scr) {
     return new FormView(scr, {
-      title: 'Graphics',
+      title: 'Map and Terrain',
       fields: [
         Object.assign({ type: 'select', label: 'Map orientation', options: ['track', 'north'], show: (v) => (v === 'track' ? 'Track up' : 'North up') }, bind('mapUp')),
         Object.assign({ type: 'select', label: 'Base map', options: ['off', 'opentopomap', 'osm'], wide: true, show: (v) => ({ off: 'Procedural terrain (offline)', opentopomap: 'OpenTopoMap tiles (online)', osm: 'OpenStreetMap tiles (online)' }[v]) }, bind('tiles')),
@@ -274,6 +274,50 @@
         section('Tiles need internet access in the browser; attribution is drawn on the map.'),
       ],
     });
+  }
+
+  /* named colours for the Graphics colour items (value = CSS colour) */
+  const COLORS = { '#ff3b30': 'Red', '#ff9a1f': 'Orange', '#ffd400': 'Yellow', '#29d35a': 'Green', '#1a8a3a': 'Dark green', '#5fd0ff': 'Cyan', '#1a3cff': 'Blue', '#ff2fd5': 'Magenta', '#ffffff': 'White', '#8a8f99': 'Grey', '#464646': 'Dark grey', '#000000': 'Black' };
+  const colorSel = (label, key) => Object.assign({ type: 'select', label, options: Object.keys(COLORS), show: (v) => COLORS[v] || v }, bind(key));
+  const widthSel = (label, key) => spin(label, key, 1, 8, 1, (v) => v + ' px');
+
+  /* ------------------------------------- Setup > Graphics > Glider and Track (7.1.7.5) */
+  function gliderTrack(scr) {
+    const PS = { fixed: 'Fixed colour', mc: 'Mc (vs. MacCready)', vario: 'Vario', altitude: 'Altitude', speed: 'Ground speed' };
+    return new FormView(scr, {
+      title: 'Glider and Track',
+      fields: [
+        check('', 'showPath', 'Show path'),
+        spin('Path length', 'pathLength', 5, 180, 5, (v) => v + ' min', { coarse: 4 }),
+        Object.assign({ type: 'select', label: 'Path style', options: Object.keys(PS), show: (v) => PS[v] }, bind('pathStyle')),
+        colorSel('Path colour (fixed)', 'pathColor'),
+        widthSel('Path width', 'pathWidth'),
+        check('', 'showTrackLine', 'Show current track'),
+        colorSel('Track colour', 'trackColor'),
+        widthSel('Track width', 'trackWidth'),
+        check('', 'showTargetLine', 'Show target line'),
+        colorSel('Target colour', 'targetColor'),
+        widthSel('Target width', 'targetWidth'),
+        check('', 'showCollision', 'Show terrain collision point'),
+        check('', 'showRangeCircles', 'Show range circles'),
+        colorSel('Range colour', 'rangeColor'),
+        widthSel('Range width', 'rangeWidth'),
+        check('', 'showGlideArea', 'Show glider range area'),
+        colorSel('Area colour', 'areaColor'),
+        colorSel('Area border', 'areaBorder'),
+        Object.assign({ type: 'select', label: 'Fill area', options: ['outside', 'inside'], show: (v) => (v === 'outside' ? 'Outside the range area' : 'Inside the range area') }, bind('areaFill')),
+        section('The range area uses the safety Mc and the wind. No Hawk Netto path style or engine colouring: no HAWK / engine.'),
+      ],
+      buttons: { 6: { label: 'DEFAULT', run: (s, form) => { S().set({ showPath: true, pathLength: 50, pathStyle: 'fixed', pathColor: '#1a3cff', pathWidth: 2, showTrackLine: true, trackColor: '#464646', trackWidth: 2, showTargetLine: true, targetColor: '#ff2fd5', targetWidth: 3, showCollision: true, showRangeCircles: true, rangeColor: '#000000', rangeWidth: 1, showGlideArea: false, areaColor: '#ff9a1f', areaBorder: '#ff9a1f', areaFill: 'outside' }); scr.toast('Defaults restored', 1200); } } },
+    });
+  }
+
+  /* ----------------------------------------------------------- Setup > Graphics */
+  function graphics(scr, ctx) {
+    return new MenuView(scr, [
+      { label: 'Map and Terrain', color: '#7ee07e', run: (s) => s.open(mapAndTerrain(s)) },
+      { label: 'Glider and Track', color: '#ffb000', run: (s) => s.open(gliderTrack(s)) },
+    ], { title: 'Graphics' });
   }
 
   function display(scr) {
@@ -349,7 +393,7 @@
       ['Vario Parameters', '#7ee07e', (s) => s.open(varioParams(s))],
       ['Display', '#5fd0ff', (s) => s.open(LX.setup2.display(s))],
       ['Files and Transfer', '#ffd400', (s) => s.open(LX.filesUI.filesRoot(s, ctx))],
-      ['Graphics', '#ffb000', (s) => s.open(graphics(s))],
+      ['Graphics', '#ffb000', (s) => s.open(graphics(s, ctx))],
       ['Sounds', '#ffb000', (s) => s.open(soundsMenu(s, ctx))],
       ['Observation Zones', '#ff5a4a', (s) => s.open(LX.setup2.observationZones(s))],
       ['Optimization', '#8fb6ff', (s) => s.open(optimization(s))],
@@ -407,7 +451,7 @@
     });
   }
 
-  function mapDialog(scr, ctx) { return graphics(scr); }
+  function mapDialog(scr, ctx) { return mapAndTerrain(scr); }
 
   function airspaceList(scr, ctx) {
     const f = ctx.flight.f;

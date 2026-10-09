@@ -14,6 +14,7 @@
   'use strict';
   const LX = global.LX;
   const geo = LX.geo;
+  const clamp = LX.util.clamp;
   const D2R = Math.PI / 180;
 
   /** Map scale: kilometres represented by the ~100 px zoom bar. */
@@ -127,20 +128,22 @@
 
       this.drawBackdrop(c, vp, rot);
       if (vp.tiles && vp.tiles !== 'off') this.drawTiles(c, vp, toScreen);
-      this.drawRings(c, vp);
+      const st = data.style || {};
+      if (st.showRangeCircles !== false) this.drawRings(c, vp, st);
+      if (data.range && st.showGlideArea) this.drawGlideArea(c, data.range, toScreen, vp, st);
       if (data.airspaces) this.drawAirspace(c, data.airspaces, toScreen, vp);
       if (data.nav) {
         this.drawWaypoints(c, data.nav, toScreen, vp);
         this.drawTask(c, data.nav, toScreen, vp);
       }
       if (data.fai) this.drawFai(c, data.fai, toScreen, vp);
-      if (data.history) this.drawTrack(c, data.history, toScreen);
+      if (data.history) this.drawTrack(c, data.history, toScreen, st, data.mc);
       if (data.opt && data.opt.length > 1) {
         c.strokeStyle = '#ffd400'; c.lineWidth = 3; c.setLineDash([8, 5]); c.beginPath();
         data.opt.forEach((p, i) => { const [x, y] = toScreen(p[0], p[1]); i ? c.lineTo(x, y) : c.moveTo(x, y); }); c.stroke(); c.setLineDash([]);
       }
       if (data.thermals) this.drawThermals(c, data.thermals, toScreen, vp, data.mc);
-      this.drawGoal(c, vp, data, toScreen);
+      this.drawGoal(c, vp, data, toScreen, st);
       if (data.paths) this.drawPaths(c, data.paths, toScreen);
       if (data.traffic) this.drawTraffic(c, data.traffic, toScreen, vp);
       if (data.pcas && data.pcas.length) this.drawPcas(c, data.pcas, vp);
@@ -232,11 +235,11 @@
       c.textAlign = 'left';
     }
 
-    drawRings(c, vp) {
-      // rings at multiples of the zoom-bar distance, dark thin lines with labels
+    drawRings(c, vp, st) {
+      // rings at multiples of the zoom-bar distance, with labels (Setup > Graphics > Glider and Track: range circles)
       const step = vp.scaleKm * 1000 * 1.0; // metres per ring
-      c.strokeStyle = 'rgba(0,0,0,.55)';
-      c.lineWidth = 1;
+      c.strokeStyle = st && st.rangeColor && st.rangeColor !== '#000000' ? st.rangeColor : 'rgba(0,0,0,.55)';
+      c.lineWidth = (st && st.rangeWidth) || 1;
       c.fillStyle = 'rgba(0,0,0,.8)';
       c.font = '11px Verdana, sans-serif';
       const maxR = Math.hypot(vp.rect.w, vp.rect.h) * vp.mpp;
@@ -362,13 +365,67 @@
       }
     }
 
-    drawTrack(c, hist, toScreen) {
-      if (hist.length < 2) return;
-      c.lineWidth = 2;
-      c.strokeStyle = '#1a3cff';
+    /**
+     * Flown path (manual 7.1.7.5). Styles: fixed colour, Mc (red: climb above Mc, orange: about Mc, blue: below,
+     * grey: sink), vario (red up / blue down), altitude (red low -> blue high), ground speed (red slow -> blue fast).
+     * History points are [lat, lon, alt, vario, groundspeed], one per 2 s.
+     */
+    drawTrack(c, hist, toScreen, st, mc) {
+      st = st || {};
+      if (st.showPath === false) return;
+      const n = Math.max(2, Math.round((st.pathLength || 50) * 30));
+      const h = hist.length > n ? hist.slice(-n) : hist;
+      if (h.length < 2) return;
+      c.save();
+      c.lineWidth = st.pathWidth || 2; c.lineJoin = 'round'; c.lineCap = 'round';
+      const style = st.pathStyle || 'fixed';
+      const pts = h.map((p) => toScreen(p[0], p[1]));
+      if (style === 'fixed' || h[0].length < 5) {
+        c.strokeStyle = st.pathColor || '#1a3cff';
+        c.beginPath(); pts.forEach(([x, y], i) => { i ? c.lineTo(x, y) : c.moveTo(x, y); }); c.stroke();
+        c.restore(); return;
+      }
+      const col = this.pathColorFn(style, h, mc);
+      let cur = null;
+      for (let i = 1; i < h.length; i++) {
+        const k = col(h[i]);
+        if (k !== cur) { if (cur !== null) c.stroke(); c.strokeStyle = k; c.beginPath(); c.moveTo(pts[i - 1][0], pts[i - 1][1]); cur = k; }
+        c.lineTo(pts[i][0], pts[i][1]);
+      }
+      if (cur !== null) c.stroke();
+      c.restore();
+    }
+
+    /** Colour of a history point for the given path style. */
+    pathColorFn(style, h, mc) {
+      const hue = (t) => `hsl(${Math.round(240 * clamp(t, 0, 1))},95%,50%)`; // 0 = red ... 1 = blue
+      if (style === 'mc') {
+        return (p) => (p[3] >= mc + 0.5 ? '#ff3b30' : p[3] < 0 ? '#8a8f99' : p[3] < mc - 0.5 ? '#2f7bff' : '#ff9a1f');
+      }
+      if (style === 'vario') return (p) => (p[3] >= 0 ? '#ff3b30' : '#2f7bff');
+      const idx = style === 'altitude' ? 2 : 4;
+      let lo = Infinity, hi = -Infinity;
+      h.forEach((p) => { if (p[idx] < lo) lo = p[idx]; if (p[idx] > hi) hi = p[idx]; });
+      const span = Math.max(1e-6, hi - lo);
+      return (p) => hue((p[idx] - lo) / span);
+    }
+
+    /** Glider range area (manual 7.1.7.5): where final glide still arrives at the safety altitude. */
+    drawGlideArea(c, ring, toScreen, vp, st) {
+      if (!ring || ring.length < 3) return;
+      const R = vp.rect;
+      c.save();
       c.beginPath();
-      hist.forEach((p, i) => { const [x, y] = toScreen(p[0], p[1]); i ? c.lineTo(x, y) : c.moveTo(x, y); });
-      c.stroke();
+      if (st.areaFill !== 'inside') c.rect(R.x, R.y, R.w, R.h);
+      ring.forEach((p, i) => { const [x, y] = toScreen(p[0], p[1]); i ? c.lineTo(x, y) : c.moveTo(x, y); });
+      c.closePath();
+      c.fillStyle = (st.areaColor || '#29d35a') + '55';
+      c.fill('evenodd');
+      c.strokeStyle = st.areaBorder || '#1a8a3a'; c.lineWidth = 2;
+      c.beginPath();
+      ring.forEach((p, i) => { const [x, y] = toScreen(p[0], p[1]); i ? c.lineTo(x, y) : c.moveTo(x, y); });
+      c.closePath(); c.stroke();
+      c.restore();
     }
 
     drawThermals(c, list, toScreen, vp, mc) {
@@ -416,23 +473,26 @@
       });
     }
 
-    drawGoal(c, vp, d, toScreen) {
+    drawGoal(c, vp, d, toScreen, st) {
+      st = st || {};
       // ground track: straight ahead (up when track-up)
-      c.lineWidth = 2;
-      c.strokeStyle = 'rgba(70,70,70,.9)';
+      c.lineWidth = st.trackWidth || 2;
+      c.strokeStyle = st.trackColor || 'rgba(70,70,70,.9)';
       const up = vp.up === 'track';
       const [tx, ty] = up ? [vp.ox, vp.oy - 4000] : (() => {
         const p = geo.dest(vp.own ? vp.own.lat : vp.lat, vp.own ? vp.own.lon : vp.lon, vp.track, 60000);
         return toScreen(p.lat, p.lon);
       })();
-      c.beginPath(); c.moveTo(vp.ox, vp.oy); c.lineTo(tx, ty); c.stroke();
+      if (st.showTrackLine !== false) { c.beginPath(); c.moveTo(vp.ox, vp.oy); c.lineTo(tx, ty); c.stroke(); }
 
       const nav = d.f && d.f.nav;
       if (!nav) return;
       const [gx, gy] = toScreen(nav.target.lat, nav.target.lon);
-      c.strokeStyle = '#ff2fd5';
-      c.lineWidth = 3;
-      c.beginPath(); c.moveTo(vp.ox, vp.oy); c.lineTo(gx, gy); c.stroke();
+      if (st.showTargetLine !== false) {
+        c.strokeStyle = st.targetColor || '#ff2fd5';
+        c.lineWidth = st.targetWidth || 3;
+        c.beginPath(); c.moveTo(vp.ox, vp.oy); c.lineTo(gx, gy); c.stroke();
+      }
       // glide rectangles: where final glide (Mc) / (Mc 0) is reached on the goal line
       const f = d.f;
       const usable = f.alt - (nav.target.elev || 0) - d.safety;
@@ -445,7 +505,7 @@
         c.fillStyle = color; c.strokeStyle = '#000'; c.lineWidth = 1;
         c.fillRect(x - 6, y - 6, 12, 12); c.strokeRect(x - 6, y - 6, 12, 12);
       };
-      if (d.collision) { // terrain collision on the glide (manual 8.3.4): red rectangle on the magenta line
+      if (d.collision && st.showCollision !== false) { // terrain collision on the glide (manual 8.3.4): red rectangle on the magenta line
         const [cx2, cy2] = toScreen(d.collision.lat, d.collision.lon);
         c.fillStyle = '#ff3b30'; c.strokeStyle = '#000'; c.lineWidth = 1.5;
         c.fillRect(cx2 - 7, cy2 - 7, 14, 14); c.strokeRect(cx2 - 7, cy2 - 7, 14, 14);

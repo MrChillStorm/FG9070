@@ -219,8 +219,8 @@
         const h = ctx.history, f = flight.f;
         if (h.length) ctx.flownDist += geo.dist(h[h.length - 1][0], h[h.length - 1][1], f.lat, f.lon);
         if (!ctx.flightStart) ctx.flightStart = { lat: f.lat, lon: f.lon };
-        h.push([f.lat, f.lon]);
-        if (h.length > 1500) h.shift();
+        h.push([f.lat, f.lon, f.alt, f.te, f.gs]); // + altitude, vario, ground speed for the path colouring styles
+        if (h.length > 5400) h.shift(); // 3 h at one point per 2 s
       }
     }
     if (flight.have) recorder.tick(flight.f, flight.flying, now);

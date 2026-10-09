@@ -133,6 +133,13 @@
     autoData: true, // download airports (OurAirports) automatically on the first FlightGear fix when none are loaded
     openaipProxy: '', // e.g. http://localhost:5401 (tools/openaip-proxy.js): the OpenAIP API sends no CORS headers
     openaipKey: '', // free key from openaip.net for the online airspace/airport download
+    // Setup > Graphics > Glider and Track (manual 7.1.7.5)
+    showPath: true, pathLength: 50, pathStyle: 'fixed', pathColor: '#1a3cff', pathWidth: 2, // pathLength in minutes
+    showTrackLine: true, trackColor: '#464646', trackWidth: 2,
+    showTargetLine: true, targetColor: '#ff2fd5', targetWidth: 3,
+    showCollision: true,
+    showRangeCircles: true, rangeColor: '#000000', rangeWidth: 1,
+    showGlideArea: false, areaColor: '#ff9a1f', areaBorder: '#ff9a1f', areaFill: 'outside',
     showAirspace: true,
     showThermals: true,
     page: 0,

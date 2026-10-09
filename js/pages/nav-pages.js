@@ -226,6 +226,23 @@
       return this._opt.pts;
     }
 
+    /** Glider range area (manual 7.1.7.5): outline of where final glide at the safety Mc reaches the safety altitude, once a second. */
+    glideRange(f, s) {
+      const now = performance.now();
+      if (this._ra && now - this._ra.t < 1000) return this._ra.ring;
+      const flight = this.ctx.flight, pol = flight.getPolar();
+      const usable = Math.max(0, f.alt - this.ctx.groundElev(f) - s.safetyAlt);
+      const mcSafe = Math.max(0, s.mc + s.mcOffset);
+      const ring = [];
+      for (let b = 0; b < 360; b += 10) {
+        const r = LX.polar.finalGlide(pol, { mc: mcSafe, dist: 1000, alt: f.alt, targetElev: 0, safety: 0, headwind: flight._headwindAlong(b) }).ratio * usable;
+        const p = geo.dest(f.lat, f.lon, b, r);
+        ring.push([p.lat, p.lon]);
+      }
+      this._ra = { t: now, ring };
+      return ring;
+    }
+
     /** The map in `rect` with all its overlays on the map itself; returns what the symbols around it need. */
     mapCore(f, rect) {
       const c = this.c, W = this.W;
@@ -262,7 +279,7 @@
         fai, nav: this.ctx.nav, f: fWith, history: this.ctx.history,
         thermals: s.showThermals !== false ? this.ctx.flight.thermals : null,
         airspaces: s.showAirspace !== false ? this.ctx.nav.airspaces : null,
-        mc: s.mc, safety: s.safetyAlt, collision: tclear,
+        mc: s.mc, safety: s.safetyAlt, collision: tclear, style: s, range: s.showGlideArea ? this.glideRange(f, s) : null,
         traffic: this.ctx.traffic.relative(f, 0), pcas: this.ctx.traffic.pcas(), paths: this.ctx.traffic.paths(),
       });
       return { nav, up, tclear, scaleKm, mpp };
