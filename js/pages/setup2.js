@@ -109,7 +109,7 @@
         spin('Pilot', 'wbPilot', 30, 150, 1, kg, { coarse: 5 }),
         spin('Co-pilot', 'wbCopilot', 0, 150, 1, kg, { coarse: 5 }),
         spin('Parachute', 'wbChute', 0, 20, 1, kg, { coarse: 5 }),
-        { type: 'spin', label: 'Water ballast', min: 0, step: 5, coarse: 4, get: () => S().get().ballast, set: (v) => S().set({ ballast: Math.min(v, maxBal()) }), get max() { return maxBal(); }, fmt: kg },
+        LX.ballastField('Water ballast'),
         spin('Wing area', 'wbArea', 5, 30, 0.1, (v) => num(v, 1) + ' m²', { coarse: 10 }),
         info('Total mass', () => { const s = S().get(); return kg(s.wbEmpty + s.wbPilot + s.wbCopilot + s.wbChute + s.ballast); }),
         info('Wing loading', () => { const s = S().get(); return num((s.wbEmpty + s.wbPilot + s.wbCopilot + s.wbChute + s.ballast) / s.wbArea, 1) + ' kg/m²'; }),

@@ -182,7 +182,9 @@
     if (s.transport === 'demo' && flight.have === false) { /* ref is set on first sample */ }
   }
 
+  LX.geo.setMethod(settings.get().distMethod);
   settings.onChange((s, changed) => {
+    if (changed.indexOf('distMethod') >= 0) LX.geo.setMethod(s.distMethod);
     if (changed.some((k) => ['host', 'port', 'transport', 'hz', 'trafficSource'].indexOf(k) >= 0)) connect();
     if (changed.indexOf('orientation') >= 0) screen.resize();
   });

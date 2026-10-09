@@ -49,6 +49,8 @@
     uAlt: 'm', // m | ft
     uVario: 'm/s', // m/s | kt | ft/min
     uDist: 'km', // km | nm | sm
+    distMethod: 'fai', // 'fai' sphere | 'wgs84' ellipsoid (Setup > Units)
+    ballastMode: 'weight', // 'weight' (kg of water) | 'load' (kg/m2 wing loading) (Setup > Units)
     // Setup > Hardware > Vario unit: TE compensation
     teSource: 'ias', // 'ias' (realistic, default) | 'tas' (high-accuracy mode)
     teComp: 100, // % digital TE compensation (100 = fully compensated)

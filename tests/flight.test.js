@@ -84,3 +84,28 @@ console.log('flight tests passed');
   assert.ok(run(0.2) > run(5), 'short netto filter follows a step faster than a long one');
   assert.strictEqual(typeof new LX.TEVario().update(0, 0, 30, 0.7, 1.5, 1).raw, 'number', 'old call form still works');
 }
+
+// --- distance calculation method (manual 7.1.11): FAI sphere vs WGS84 ellipsoid
+{
+  const fl = [-37.9510334167, 144.4248678889], bu = [-37.6528211389, 143.9264955278]; // Geoscience Australia Vincenty test line
+  const e = LX.geo.ellipsoidDist(fl[0], fl[1], bu[0], bu[1]);
+  assert.ok(Math.abs(e - 54972.271) < 0.01, 'Vincenty reference: ' + e);
+  assert.ok(Math.abs(LX.geo.ellipsoidDist(0, 0, 0, 1) - 111319.49) < 0.5, 'one degree of equator');
+  assert.strictEqual(LX.geo.ellipsoidDist(10, 10, 10, 10), 0);
+  LX.geo.setMethod('fai');
+  const s = LX.geo.dist(0, 0, 0, 1);
+  assert.ok(Math.abs(s - 111194.93) < 0.5, 'FAI sphere degree: ' + s);
+  LX.geo.setMethod('wgs84');
+  assert.ok(Math.abs(LX.geo.dist(0, 0, 0, 1) - 111319.49) < 0.5, 'dist() follows the method');
+  LX.geo.setMethod('fai');
+}
+
+// --- ballast entered as wing loading
+{
+  const s = { wbEmpty: 400, wbPilot: 80, wbCopilot: 0, wbChute: 8, wbArea: 17.5, ballast: 100 };
+  assert.ok(Math.abs(LX.polar.wingLoading(s) - 588 / 17.5) < 1e-9);
+  assert.strictEqual(LX.polar.ballastFromLoad(s, 588 / 17.5, 200), 100);
+  assert.strictEqual(LX.polar.ballastFromLoad(s, 10, 200), 0, 'below dry mass clamps to 0');
+  assert.strictEqual(LX.polar.ballastFromLoad(s, 99, 200), 200, 'above max clamps');
+}
+console.log('geo/ballast ok');

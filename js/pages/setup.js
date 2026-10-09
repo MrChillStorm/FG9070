@@ -145,6 +145,22 @@
     ], { title: 'Sounds' });
   }
 
+  /* Water ballast spin: kg of water, or wing loading in kg/m2 when Setup > Units > Ballast entry is "load". */
+  LX.ballastField = function (label) {
+    const maxB = () => LX.polar.GLIDERS[S().get().glider].maxBallast;
+    const load = () => S().get().ballastMode === 'load';
+    const dry = () => { const s = S().get(); return (s.wbEmpty + s.wbPilot + s.wbCopilot + s.wbChute) / s.wbArea; };
+    return {
+      type: 'spin', label, coarse: 4,
+      get: () => (load() ? Math.round(LX.polar.wingLoading(S().get()) * 10) / 10 : S().get().ballast),
+      set: (v) => S().set({ ballast: load() ? LX.polar.ballastFromLoad(S().get(), v, maxB()) : Math.min(v, maxB()) }),
+      get min() { return load() ? Math.ceil(dry() * 10) / 10 : 0; },
+      get max() { return load() ? Math.floor(LX.polar.wingLoading(Object.assign({}, S().get(), { ballast: maxB() })) * 10) / 10 : maxB(); },
+      get step() { return load() ? 0.5 : 5; },
+      fmt: (v) => (load() ? num(v, 1) + ' kg/m²' : v + ' kg'),
+    };
+  };
+
   /* ------------------------------------------------------------ Setup > Units */
   function unitsDialog(scr) {
     return new FormView(scr, {
@@ -154,7 +170,8 @@
         select('Altitude', 'uAlt', ['m', 'ft']),
         select('Vario', 'uVario', ['m/s', 'kt', 'ft/min']),
         select('Distance', 'uDist', ['km', 'nm', 'sm']),
-        info('Dist. calc. method', () => 'FAI sphere'),
+        { type: 'select', label: 'Dist. calc. method', options: ['fai', 'wgs84'], show: (v) => (v === 'wgs84' ? 'WGS84 ellipsoid' : 'FAI sphere'), get: () => S().get().distMethod, set: (v) => S().set({ distMethod: v }) },
+        { type: 'select', label: 'Ballast entry', options: ['weight', 'load'], show: (v) => (v === 'load' ? 'Load (kg/m²)' : 'Weight (kg)'), get: () => S().get().ballastMode, set: (v) => S().set({ ballastMode: v }) },
       ],
       buttons: {
         6: {
@@ -244,13 +261,7 @@
       title: 'Polar and Glider',
       fields: [
         Object.assign({ type: 'select', label: 'Glider', options: ids, wide: true, show: (v) => LX.polar.GLIDERS[v].name }, bind('glider')),
-        {
-          type: 'spin', label: 'Water ballast', min: 0, step: 5, coarse: 4,
-          get: () => S().get().ballast,
-          set: (v) => S().set({ ballast: Math.min(v, LX.polar.GLIDERS[S().get().glider].maxBallast) }),
-          get max() { return LX.polar.GLIDERS[S().get().glider].maxBallast; },
-          fmt: (v) => v + ' kg',
-        },
+        LX.ballastField('Water ballast'),
         spin('Bugs', 'bugs', 0, 30, 1, (v) => v + '%'),
         info('Best L/D', () => { const p = ctx.flight.getPolar(), c = LX.polar.characteristics(p); return `${num(c.bestLD.ld, 1)} @ ${num(U().speed(c.bestLD.v), 0)} ${U().label('speed')}`; }),
         info('Min sink', () => { const p = ctx.flight.getPolar(), c = LX.polar.characteristics(p); return `${num(U().vario(-c.minSink.w), 2)} ${U().label('vario')} @ ${num(U().speed(c.minSink.v), 0)}`; }),
@@ -597,13 +608,7 @@
       autoClose: 10000,
       fields: [
         spin('MacCready', 'mc', 0, 5, 0.1, (v) => num(U().vario(v), 1) + ' ' + U().label('vario')),
-        {
-          type: 'spin', label: 'Ballast', min: 0, step: 5, coarse: 4,
-          get: () => S().get().ballast,
-          set: (v) => S().set({ ballast: Math.min(v, LX.polar.GLIDERS[S().get().glider].maxBallast) }),
-          get max() { return LX.polar.GLIDERS[S().get().glider].maxBallast; },
-          fmt: (v) => v + ' kg',
-        },
+        LX.ballastField('Ballast'),
         spin('Bugs', 'bugs', 0, 30, 1, (v) => v + '%'),
         info('Glide ratio at Mc', () => { const n = ctx.flight.navTo(ctx.nav.target('tsk')); return n ? `${num(n.Emc, 0)} @ ${num(U().speed(n.stfFG), 0)} ${U().label('speed')}` : '---'; }),
         info('Speed to fly now', () => `${num(U().speed(ctx.flight.f.stf), 0)} ${U().label('speed')}`),

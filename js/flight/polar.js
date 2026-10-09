@@ -118,5 +118,12 @@
     return { v, ground: gs, sink, heightNeeded, arrivalHeight: arrival, ratio: gs / Math.max(0.01, sink), time: t };
   }
 
-  LX.polar = { GLIDERS, fit, make, characteristics, speedToFly, finalGlide };
+  /* Ballast can be entered as water weight (kg) or as the resulting wing loading (kg/m2) (manual 7.1.11). */
+  function wingLoading(s) { return (s.wbEmpty + s.wbPilot + s.wbCopilot + s.wbChute + s.ballast) / s.wbArea; }
+  function ballastFromLoad(s, load, maxBallast) {
+    const dry = s.wbEmpty + s.wbPilot + s.wbCopilot + s.wbChute;
+    return Math.round(Math.max(0, Math.min(maxBallast, load * s.wbArea - dry)));
+  }
+
+  LX.polar = { GLIDERS, fit, make, characteristics, speedToFly, finalGlide, wingLoading, ballastFromLoad };
 })(window);
