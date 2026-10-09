@@ -38,14 +38,14 @@
       live: true,
       fields: [
         info('Pilot', () => S.get().pilot || '(not set: Setup > Profiles and Pilots)'),
-        info('Glider', () => LX.polar.GLIDERS[S.get().glider].name),
+        info('Glider', () => LX.polar.glider(S.get().glider).name),
         Object.assign(act('Registration', '', prompter('Glider registration', 'gliderReg')), { get text() { return S.get().gliderReg || '(not set)'; }, set text(v) { /* live */ } }),
         Object.assign(act('Competition ID', '', prompter('Competition ID', 'compId')), { get text() { return S.get().compId || '(not set)'; }, set text(v) { /* live */ } }),
         info('Task declared', () => (ctx.nav.task.length > 1 ? `${ctx.nav.options.name || 'TASK'}  ${ctx.nav.task.length} points  ${km(total())}` : 'no task')),
         act('Save', 'SAVE  declaration as .hdr', () => {
           if (ctx.nav.task.length < 2) { scr.toast('Declare a task first (TSK mode > EDIT)', 2500); return; }
           const st = S.get();
-          download('declaration.hdr', Files.writeDeclaration({ pilot: st.pilot, glider: LX.polar.GLIDERS[st.glider].name, regId: st.gliderReg, compId: st.compId, name: ctx.nav.options.name, points: declaredPoints(ctx) }));
+          download('declaration.hdr', Files.writeDeclaration({ pilot: st.pilot, glider: LX.polar.glider(st.glider).name, regId: st.gliderReg, compId: st.compId, name: ctx.nav.options.name, points: declaredPoints(ctx) }));
           scr.toast('declaration.hdr downloaded', 2000);
         }),
         act('Load', 'LOAD  declaration .hdr as the active task', async () => {

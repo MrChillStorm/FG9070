@@ -84,7 +84,8 @@
     mute: false,
     speech: false,
     // Polar and glider
-    glider: 'ask21',
+    glider: 'ask21', // built-in id or a key of gliders
+    gliders: {}, // user gliders (Setup > Polar and Glider > NEW), see LX.polar
     ballast: 0, // kg
     bugs: 0, // %
     // QNH and RES

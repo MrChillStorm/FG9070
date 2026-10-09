@@ -156,6 +156,12 @@
         }
       } else if (W.altitude(f, now) === null && false) { /* altitude view closes via its own state */ }
 
+      // stall warning (glider speeds, manual 7.1.13.2): IAS below the stall speed while flying
+      const pol = ctx.flight.getPolar();
+      if (pol.stall && f.flying && f.ias > 8 && f.ias < pol.stall) {
+        if (now - (W.stallAt || 0) > 4000) { W.stallAt = now; scr.toast('STALL', 2500); alarm = 'red'; if (LX.speech) LX.speech.say('Stall'); }
+      }
+
       // time alarms + waypoint
       W.timeAlarms(f.flightTime || 0).forEach((i) => { scr.toast(`Time alarm ${i + 1}`, 4000); alarm = alarm || 'orange'; });
       if (ctx.settings.get().sunsetAlarm && ctx.ref) {

@@ -47,7 +47,7 @@
       this.cur = {
         date: d.toISOString().slice(0, 10), start: d.toTimeString().slice(0, 5),
         startSod: d.getUTCHours() * 3600 + d.getUTCMinutes() * 60 + d.getUTCSeconds(),
-        t0: tMs, fixes: [], glider: LX.polar.GLIDERS[this.S.get().glider].name, pilot: this.S.get().pilot || '',
+        t0: tMs, fixes: [], glider: LX.polar.glider(this.S.get().glider).name, pilot: this.S.get().pilot || '',
         task: this.nav && this.nav.task && this.nav.task.length ? this.nav.options.name : '',
       };
       this.lastT = -1e9;

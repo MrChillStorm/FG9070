@@ -183,8 +183,10 @@
   }
 
   LX.geo.setMethod(settings.get().distMethod);
+  LX.polar.setUser(settings.get().gliders);
   settings.onChange((s, changed) => {
     if (changed.indexOf('distMethod') >= 0) LX.geo.setMethod(s.distMethod);
+    if (changed.indexOf('gliders') >= 0) LX.polar.setUser(s.gliders);
     if (changed.some((k) => ['host', 'port', 'transport', 'hz', 'trafficSource'].indexOf(k) >= 0)) connect();
     if (changed.indexOf('orientation') >= 0) screen.resize();
   });

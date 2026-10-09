@@ -109,3 +109,23 @@ console.log('flight tests passed');
   assert.strictEqual(LX.polar.ballastFromLoad(s, 99, 200), 200, 'above max clamps');
 }
 console.log('geo/ballast ok');
+
+// --- user gliders (manual 7.1.13)
+{
+  LX.polar.setUser({ u1: Object.assign(LX.polar.copyOf('club15'), { stall: 70, vne: 220, flaps: [{ label: 'L', vmin: 80, vmax: 120 }], dump: [[100, 10], [200, 20]] }) });
+  assert.ok(LX.polar.isUser('u1') && !LX.polar.isUser('ask21'));
+  assert.deepStrictEqual(LX.polar.ids().slice(-1), ['u1']);
+  const base = LX.polar.make('club15', 0, 0), cp = LX.polar.make('u1', 0, 0, 350);
+  [80, 115, 170].forEach((kmh) => assert.ok(Math.abs(base.sink(kmh / 3.6) - cp.sink(kmh / 3.6)) < 1e-6, 'copy keeps the polar at ' + kmh));
+  const heavy = LX.polar.make('u1', 0, 0, 490);
+  assert.ok(Math.abs(heavy.k - Math.sqrt(490 / 350)) < 1e-9 && heavy.mass === 490, 'scaled by total weight');
+  assert.ok(Math.abs(heavy.stall - 70 / 3.6 * heavy.k) < 1e-9 && heavy.maxSpeed === 220 / 3.6);
+  assert.strictEqual(LX.polar.make('club15', 100, 0, 999).mass, 450, 'built-ins ignore total weight');
+  assert.strictEqual(LX.polar.suggestFlap(LX.polar.glider('u1'), 100 / 3.6, 1, 350), 'L');
+  assert.strictEqual(LX.polar.suggestFlap(LX.polar.glider('u1'), 200 / 3.6, 1, 350), null);
+  const t = LX.polar.dumpTime(LX.polar.glider('u1'), 100);
+  assert.ok(t > 500 && t < 700, 'dump time ~10 l/min for 100 kg: ' + t);
+  LX.polar.setUser({});
+  assert.strictEqual(LX.polar.glider('u1').name, 'ASK 21', 'unknown id falls back');
+}
+console.log('user glider ok');

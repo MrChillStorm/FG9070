@@ -72,9 +72,10 @@
     /** Polar for the current glider / ballast / bugs settings (cached). */
     getPolar() {
       const s = this.S.get();
-      const key = `${s.glider}|${s.ballast}|${s.bugs}`;
+      const total = s.wbEmpty + s.wbPilot + s.wbCopilot + s.wbChute + s.ballast;
+      const key = `${s.glider}|${s.ballast}|${s.bugs}|${LX.polar.version}|${LX.polar.isUser(s.glider) ? total : ''}`;
       if (key !== this.polarKey) {
-        this.polar = LX.polar.make(s.glider, s.ballast, s.bugs);
+        this.polar = LX.polar.make(s.glider, s.ballast, s.bugs, total);
         this.polarKey = key;
       }
       return this.polar;

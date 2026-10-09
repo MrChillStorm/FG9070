@@ -100,7 +100,7 @@
   /* --------------------------------------------------------- weight and balance */
   function weightBalance(scr, ctx) {
     const kg = (v) => v + ' kg';
-    const maxBal = () => LX.polar.GLIDERS[S().get().glider].maxBallast;
+    const maxBal = () => LX.polar.glider(S().get().glider).maxBallast;
     return new FormView(scr, {
       title: 'Weight and Balance',
       live: true,

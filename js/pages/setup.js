@@ -147,7 +147,7 @@
 
   /* Water ballast spin: kg of water, or wing loading in kg/m2 when Setup > Units > Ballast entry is "load". */
   LX.ballastField = function (label) {
-    const maxB = () => LX.polar.GLIDERS[S().get().glider].maxBallast;
+    const maxB = () => LX.polar.glider(S().get().glider).maxBallast;
     const load = () => S().get().ballastMode === 'load';
     const dry = () => { const s = S().get(); return (s.wbEmpty + s.wbPilot + s.wbCopilot + s.wbChute) / s.wbArea; };
     return {
@@ -255,18 +255,111 @@
   }
 
   /* ------------------------------------------------- Setup > Polar and Glider */
+  const gliderOf = () => LX.polar.glider(S().get().glider);
+  /** Patch the active user glider (stored in the gliders setting). */
+  function editGlider(patch) {
+    const id = S().get().glider, all = Object.assign({}, S().get().gliders);
+    if (!all[id]) return;
+    all[id] = Object.assign({}, all[id], patch);
+    S().set({ gliders: all });
+  }
+  const userOnly = () => LX.polar.isUser(S().get().glider);
+  const gSpin = (label, key, min, max, step, fmt, extra) => Object.assign({
+    type: 'spin', label, min, max, step, fmt, coarse: 10,
+    get: () => { const v = gliderOf()[key]; return v === undefined ? min : v; },
+    set: (v) => editGlider({ [key]: Math.round(v * 1e7) / 1e7 }),
+  }, extra || {});
+
+  function polarEdit(scr, ctx) {
+    return new FormView(scr, {
+      title: 'Glider Polar',
+      live: true,
+      fields: [
+        { type: 'action', label: 'Name', text: gliderOf().name, wide: true, run: (sc, form) => {
+          const v = global.prompt('Glider name', gliderOf().name); if (v !== null && v.trim()) { editGlider({ name: v.trim() }); form.render(); } } },
+        gSpin('a', 'a', 0, 0.001, 0.000001, (v) => v.toFixed(6), { coarse: 10 }),
+        gSpin('b', 'b', -0.2, 0, 0.0001, (v) => v.toFixed(4), { coarse: 10 }),
+        gSpin('c', 'c', 0, 10, 0.001, (v) => v.toFixed(3), { coarse: 10 }),
+        gSpin('Ref. weight', 'mass', 100, 1000, 1, (v) => v + ' kg', { coarse: 10 }),
+        info('Ref. load', () => { const g = gliderOf(); return num(g.mass / S().get().wbArea, 1) + ' kg/m²'; }),
+        gSpin('Max ballast', 'maxBallast', 0, 500, 5, (v) => v + ' kg', { coarse: 4 }),
+        info('Best L/D', () => { const c = LX.polar.characteristics(ctx.flight.getPolar()); return `${num(c.bestLD.ld, 1)} @ ${num(U().speed(c.bestLD.v), 0)} ${U().label('speed')}`; }),
+        info('Min sink', () => { const c = LX.polar.characteristics(ctx.flight.getPolar()); return `${num(U().vario(-c.minSink.w), 2)} ${U().label('vario')} @ ${num(U().speed(c.minSink.v), 0)}`; }),
+        section('w = a v² + b v + c   (v in km/h, w = sink in m/s). Do not change the reference weight unless you also change a, b and c.'),
+      ],
+    });
+  }
+
+  function speedsEdit(scr, ctx) {
+    const kmh = (v) => v + ' km/h';
+    const fields = [
+      gSpin('Stall speed', 'stall', 30, 150, 1, kmh, { coarse: 5 }),
+      gSpin('Vne', 'vne', 100, 400, 5, kmh, { coarse: 4 }),
+    ];
+    for (let i = 0; i < 3; i++) {
+      const flap = () => (gliderOf().flaps || [])[i] || { label: '', vmin: 0, vmax: 0 };
+      const put = (patch) => { const fl = (gliderOf().flaps || []).slice(); while (fl.length <= i) fl.push({ label: '', vmin: 0, vmax: 0 }); fl[i] = Object.assign({}, fl[i], patch); editGlider({ flaps: fl }); };
+      fields.push(
+        { type: 'action', label: 'Flap ' + (i + 1), text: flap().label || '(not set)', run: (sc, form) => { const v = global.prompt('Flap position label', flap().label); if (v !== null) { put({ label: v.trim().slice(0, 4) }); form.render(); } } },
+        { type: 'spin', label: '  from', min: 0, max: 400, step: 5, coarse: 4, get: () => flap().vmin, set: (v) => put({ vmin: v }), fmt: kmh },
+        { type: 'spin', label: '  to', min: 0, max: 400, step: 5, coarse: 4, get: () => flap().vmax, set: (v) => put({ vmax: v }), fmt: kmh },
+      );
+    }
+    fields.push(
+      info('Suggested flap', () => { const f = ctx.flight.f; return LX.polar.suggestFlap(gliderOf(), f.ias, f.gForce, ctx.flight.getPolar().mass) || '--'; }),
+      section('Speeds are for the reference weight; the suggestion is corrected for current weight and G-load. A stall warning sounds below the stall speed.'),
+    );
+    return new FormView(scr, { title: 'Glider Speeds', live: true, fields });
+  }
+
+  function dumpEdit(scr) {
+    const fields = [];
+    for (let i = 0; i < 3; i++) {
+      const row = () => (gliderOf().dump || [])[i] || [0, 0];
+      const put = (j, v) => { const d = (gliderOf().dump || []).map((r) => r.slice()); while (d.length <= i) d.push([0, 0]); d[i][j] = v; editGlider({ dump: d }); };
+      fields.push(
+        { type: 'spin', label: 'Water ' + (i + 1), min: 0, max: 500, step: 5, coarse: 4, get: () => row()[0], set: (v) => put(0, v), fmt: (v) => v + ' kg' },
+        { type: 'spin', label: 'Rate ' + (i + 1), min: 0, max: 100, step: 0.5, coarse: 10, get: () => row()[1], set: (v) => put(1, v), fmt: (v) => v + ' l/min' },
+      );
+    }
+    fields.push(
+      info('Dump all ballast', () => { const t = LX.polar.dumpTime(gliderOf(), S().get().ballast); return t ? Math.floor(t / 60) + ' min ' + Math.round(t % 60) + ' s' : '--'; }),
+      section('Rate of water dump for a given amount of water in the tank. One point means a constant rate; rate 0 = point unused.'),
+    );
+    return new FormView(scr, { title: 'Glider Dump Rates', live: true, fields });
+  }
+
   function polarGlider(scr, ctx) {
-    const ids = Object.keys(LX.polar.GLIDERS);
+    const ids = LX.polar.ids();
+    const refresh = () => { ids.length = 0; LX.polar.ids().forEach((i) => ids.push(i)); };
+    const warn = (what) => scr.toast('Built-in glider: press NEW to make an editable copy (' + what + ')', 3500);
+    const need = (run) => (sc, form) => { if (userOnly()) run(sc, form); else warn('polar, speeds, dump rates'); };
     return new FormView(scr, {
       title: 'Polar and Glider',
       fields: [
-        Object.assign({ type: 'select', label: 'Glider', options: ids, wide: true, show: (v) => LX.polar.GLIDERS[v].name }, bind('glider')),
+        Object.assign({ type: 'select', label: 'Glider', options: ids, wide: true, show: (v) => LX.polar.glider(v).name }, bind('glider')),
         LX.ballastField('Water ballast'),
         spin('Bugs', 'bugs', 0, 30, 1, (v) => v + '%'),
         info('Best L/D', () => { const p = ctx.flight.getPolar(), c = LX.polar.characteristics(p); return `${num(c.bestLD.ld, 1)} @ ${num(U().speed(c.bestLD.v), 0)} ${U().label('speed')}`; }),
         info('Min sink', () => { const p = ctx.flight.getPolar(), c = LX.polar.characteristics(p); return `${num(U().vario(-c.minSink.w), 2)} ${U().label('vario')} @ ${num(U().speed(c.minSink.v), 0)}`; }),
         info('Mass', () => num(ctx.flight.getPolar().mass, 0) + ' kg'),
-        section('Polar points are approximations: replace in js/flight/polar.js'),
+        { type: 'action', label: 'New glider', text: 'COPY ACTIVE', run: (sc, form) => {
+          const users = Object.keys(S().get().gliders);
+          if (users.length >= LX.polar.MAX_USER) { scr.toast('Up to ' + LX.polar.MAX_USER + ' gliders can be stored: delete one first', 3000); return; }
+          let n = 1; while (S().get().gliders['u' + n]) n++;
+          const id = 'u' + n, all = Object.assign({}, S().get().gliders, { [id]: LX.polar.copyOf(S().get().glider) });
+          S().set({ gliders: all, glider: id }); refresh(); form.render();
+        } },
+        { type: 'action', label: 'Delete glider', text: 'DELETE', run: (sc, form) => {
+          if (!userOnly()) { scr.toast('Built-in gliders cannot be deleted', 2500); return; }
+          const id = S().get().glider, all = Object.assign({}, S().get().gliders); delete all[id];
+          S().set({ gliders: all, glider: 'ask21' }); refresh(); form.render();
+        } },
+        { type: 'action', label: 'Polar', text: 'EDIT', run: need((sc) => sc.open(polarEdit(sc, ctx))) },
+        { type: 'action', label: 'Speeds', text: 'EDIT', run: need((sc) => sc.open(speedsEdit(sc, ctx))) },
+        { type: 'action', label: 'Dump rates', text: 'EDIT', run: need((sc) => sc.open(dumpEdit(sc))) },
+        { type: 'action', label: 'Weight and balance', text: 'OPEN', run: (sc) => sc.open(LX.setup2.weightBalance(sc, ctx)) },
+        section('A copied glider is scaled by the total weight from Weight and Balance. Built-in polars are approximations.'),
       ],
       live: true,
     });
@@ -698,5 +791,5 @@
     });
   }
 
-  LX.setup = { weather: weatherSetup, layoutDialog, setupRoot, mcDialog, windDialog, mapDialog, airspaceList, flarmList, targetList, volumes };
+  LX.setup = { weather: weatherSetup, polarGlider, layoutDialog, setupRoot, mcDialog, windDialog, mapDialog, airspaceList, flarmList, targetList, volumes };
 })(window);
