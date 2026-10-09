@@ -475,6 +475,7 @@
         spin('Freeze present time', 'wxRainFreeze', 0, 10, 1, (v) => v + ' s'),
         status('rain'),
         section('All layers'),
+        info('Map tiles', () => LX.Map.rasterStats.loaded + ' loaded, ' + LX.Map.rasterStats.failed + ' failed (a high failed count means the service refused or is slow)', { wide: true }),
         spin('Minimum zoom distance', 'wxMinZoom', 0, 1000, 50, (v) => (v ? v + ' km' : 'always visible'), { coarse: 4 }),
         section('Free services, no account. They need internet and are for training only, never for flight planning.'),
       ],

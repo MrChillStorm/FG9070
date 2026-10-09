@@ -107,6 +107,7 @@
 
   /** Cache for the weather overlay tiles (own concurrency limit; entries are keyed by layer + z/x/y). */
   const rasterCache = new Map();
+  const rasterStats = { loaded: 0, failed: 0 }; // shown in Setup > Graphics > Weather
   let rasterLoads = 0;
   function rasterImage(L, z, x, y) {
     const key = `${L.key}/${z}/${x}/${y}`;
@@ -116,8 +117,8 @@
     t = { img: new Image(), ok: false };
     rasterCache.set(key, t);
     rasterLoads++;
-    t.img.onload = () => { t.ok = true; rasterLoads--; };
-    t.img.onerror = () => { rasterLoads--; setTimeout(() => rasterCache.delete(key), 60000); };
+    t.img.onload = () => { t.ok = true; rasterLoads--; rasterStats.loaded++; };
+    t.img.onerror = () => { rasterLoads--; rasterStats.failed++; setTimeout(() => rasterCache.delete(key), 60000); };
     t.img.src = L.urlFor(z, x, y);
     if (rasterCache.size > 1500) rasterCache.delete(rasterCache.keys().next().value);
     return null;
@@ -262,7 +263,8 @@
       const R = vp.rect;
       c.save();
       (wx.rasters || []).forEach((L) => {
-        const z = tileZoom(vp.lat, vp.mpp, L.maxZoom), n = Math.pow(2, z);
+        // weather data is coarse: one zoom level lower means 4x fewer tiles to fetch (the services throttle bursts)
+        const z = Math.max(3, Math.min(L.maxZoom, tileZoom(vp.lat, vp.mpp, L.maxZoom) - 1)), n = Math.pow(2, z);
         const cx = Math.floor(tileX(vp.lon, n)), cy = Math.floor(tileY(vp.lat, n));
         const tileM = (40075016.686 * Math.cos(vp.lat * D2R)) / n;
         const span = Math.min(5, Math.ceil((Math.hypot(R.w, R.h) * vp.mpp) / 2 / tileM) + 1);
@@ -273,9 +275,11 @@
         for (const [dx, dy] of order) {
           const x = cx + dx, y = cy + dy;
           if (y < 0 || y >= n) continue;
+          const tl = toScreen(tileLat(y, n), tileLon(x, n)), tr = toScreen(tileLat(y, n), tileLon(x + 1, n)), bl = toScreen(tileLat(y + 1, n), tileLon(x, n));
+          const br = [tr[0] + bl[0] - tl[0], tr[1] + bl[1] - tl[1]];
+          if (Math.max(tl[0], tr[0], bl[0], br[0]) < R.x || Math.min(tl[0], tr[0], bl[0], br[0]) > R.x + R.w || Math.max(tl[1], tr[1], bl[1], br[1]) < R.y || Math.min(tl[1], tr[1], bl[1], br[1]) > R.y + R.h) continue; // off screen: do not even request it
           const img = rasterImage(L, z, ((x % n) + n) % n, y);
           if (!img) continue;
-          const tl = toScreen(tileLat(y, n), tileLon(x, n)), tr = toScreen(tileLat(y, n), tileLon(x + 1, n)), bl = toScreen(tileLat(y + 1, n), tileLon(x, n));
           c.save();
           c.transform((tr[0] - tl[0]) / 256, (tr[1] - tl[1]) / 256, (bl[0] - tl[0]) / 256, (bl[1] - tl[1]) / 256, tl[0], tl[1]);
           c.drawImage(img, 0, 0, 256.6, 256.6);
@@ -709,5 +713,5 @@
     }
   }
 
-  LX.Map = { Renderer: MapRenderer, AIRSPACE_TYPES, SCHEMES, SCHEME_NAMES, ZOOMS, terrain, ramp, tileMath: { tileX, tileY, tileLon, tileLat, tileZoom }, TILE_STYLES };
+  LX.Map = { Renderer: MapRenderer, rasterStats, AIRSPACE_TYPES, SCHEMES, SCHEME_NAMES, ZOOMS, terrain, ramp, tileMath: { tileX, tileY, tileLon, tileLat, tileZoom }, TILE_STYLES };
 })(window);
