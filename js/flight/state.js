@@ -246,6 +246,7 @@
       const dur = (t - th.t0) / 1000;
       if (dur > 25) {
         const gain = f.alt - th.alt0;
+        if (!this.soaringStart) this.soaringStart = { lat: th.lat, lon: th.lon }; // where soaring began (airport select > favourites)
         this.thermals.push({ t0: th.t0, t1: t, alt0: th.alt0, alt1: f.alt, gain, avg: gain / dur, dur, lat: th.lat, lon: th.lon });
         if (this.thermals.length > 30) this.thermals.shift();
       }
@@ -344,6 +345,7 @@
         this.maxAlt = f.alt;
         this.landedSince = null;
         this.thermals = [];
+        this.soaringStart = null;
       }
       if (this.flying) {
         this.maxAlt = Math.max(this.maxAlt, f.alt);

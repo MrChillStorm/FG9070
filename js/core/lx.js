@@ -85,6 +85,8 @@
     speech: false,
     // Polar and glider
     glider: 'ask21', // built-in id or a key of gliders
+    favAirports: [], // names of recently selected airports (Airport select > Favourites)
+    countries: [], // airport select country filter (ISO codes); empty = all
     gliders: {}, // user gliders (Setup > Polar and Glider > NEW), see LX.polar
     ballast: 0, // kg
     bugs: 0, // %

@@ -175,12 +175,25 @@
       this.el.innerHTML = '<div class="titlebar"></div><div class="as-head" style="position:absolute;left:0;right:0;top:24px;height:46px;padding:4px 10px;font-size:22px;letter-spacing:.1em"></div><div class="as-list" style="position:absolute;left:0;right:0;top:72px;bottom:26px;overflow:hidden"></div>';
       this.title = this.el.firstChild; this.head = this.el.children[1]; this.list = this.el.children[2];
     }
-    source() { return this.modeId === 'wpt' || this.modeId === 'rep' ? this.ctx.nav.waypoints : this.ctx.nav.airports; }
+    source() {
+      const nav = this.ctx.nav, fl = this.ctx.flight;
+      if (this.method === 'favs') { // previously selected places + take-off and soaring start (7.5.6.1)
+        const s = this.ctx.settings.get();
+        const l = (s.favAirports || []).map((n) => nav.waypoints.find((w) => w.name === n)).filter(Boolean);
+        if (fl.flightStartPos) l.push({ name: 'Take-off', code: '', lat: fl.flightStartPos.lat, lon: fl.flightStartPos.lon, elev: fl.flightStartAlt || 0, type: 'mark' });
+        if (fl.soaringStart) l.push({ name: 'Soaring start', code: '', lat: fl.soaringStart.lat, lon: fl.soaringStart.lon, elev: 0, type: 'mark' });
+        return l;
+      }
+      const all = this.modeId === 'wpt' || this.modeId === 'rep' ? nav.waypoints : nav.airports;
+      const cs = this.ctx.settings.get().countries || [];
+      return cs.length ? all.filter((w) => !w.country || cs.indexOf(w.country) >= 0) : all;
+    }
     keyOf(w) { return (this.method === 'icao' ? (w.code || w.name) : w.name).toUpperCase(); }
     matches() {
       const f = this.ctx.flight.f;
       let m = this.source().map((w) => ({ w, d: LX.geo.dist(f.lat, f.lon, w.lat, w.lon), brg: LX.geo.bearing(f.lat, f.lon, w.lat, w.lon) }));
-      if (this.method !== 'list') {
+      if (this.method === 'favs') m.sort((a, b) => a.d - b.d);
+      else if (this.method !== 'list') {
         const t = this.text.trim().toUpperCase();
         m = m.filter((x) => this.keyOf(x.w).startsWith(t));
         m.sort((a, b) => this.keyOf(a.w).localeCompare(this.keyOf(b.w)));
@@ -190,9 +203,10 @@
     show() { this.render(); }
     resize() { this.render(); }
     render() {
-      const lab = { filter: 'Filter (name)', icao: 'ICAO', list: 'List' }[this.method];
+      const lab = { filter: 'Filter (name)', icao: 'ICAO', list: 'List', favs: 'Favourites' }[this.method];
       this.title.textContent = (this.modeId === 'rep' ? 'Select report point' : this.modeId === 'wpt' ? 'Select waypoint' : 'Select airport') + ' - ' + lab;
-      if (this.method === 'list') this.head.innerHTML = `<span style="font-size:14px;color:#8fb6ff">Sorted by ${this.sort === 'dist' ? 'distance' : 'bearing'}</span>`;
+      if (this.method === 'favs') this.head.innerHTML = '<span style="font-size:14px;color:#8fb6ff">Earlier selections, take-off and soaring start</span>';
+      else if (this.method === 'list') this.head.innerHTML = `<span style="font-size:14px;color:#8fb6ff">Sorted by ${this.sort === 'dist' ? 'distance' : 'bearing'}</span>`;
       else {
         const t = (this.text + ' '.repeat(Math.max(0, this.cur + 1 - this.text.length))).split('');
         this.head.innerHTML = t.map((ch, i) => `<span style="display:inline-block;min-width:16px;text-align:center;${i === this.cur && !this.inList ? 'background:#5b5f66;' : ''}">${ch === ' ' ? '&nbsp;' : ch}</span>`).join('');
@@ -208,11 +222,11 @@
       this.matchesNow = m;
     }
     softkeys() {
-      return { labels: ['', '', '', '', 'CLOSE', 'METHOD', this.method === 'list' ? 'SORT' : 'CHAR>>', 'GOTO'], persist: true };
+      return { labels: ['', '', '', this.modeId === 'apt' ? 'COUNTRY' : '', 'CLOSE', 'METHOD', this.method === 'list' ? 'SORT' : this.method === 'favs' ? '' : 'CHAR>>', 'GOTO'], persist: true };
     }
     knob(name, dir) {
       if (name === 'page') {
-        if (this.method === 'list' || this.inList) { this.sel = Math.max(0, Math.min((this.matchesNow || []).length - 1, this.sel + dir)); }
+        if (this.method === 'list' || this.method === 'favs' || this.inList) { this.sel = Math.max(0, Math.min((this.matchesNow || []).length - 1, this.sel + dir)); }
         else {
           const ch = (this.text[this.cur] || ' ').toUpperCase();
           const i = (CHARS.indexOf(ch) + dir + CHARS.length) % CHARS.length;
@@ -222,14 +236,27 @@
         this.render(); return true;
       }
       if (name === 'zoom') {
-        if (!this.inList && this.method !== 'list') { this.cur = Math.max(0, this.cur + dir); this.text = this.text.slice(0, this.cur + 1); } // counter-clockwise = back to the previous letter
+        if (!this.inList && this.method !== 'list' && this.method !== 'favs') { this.cur = Math.max(0, this.cur + dir); this.text = this.text.slice(0, this.cur + 1); } // counter-clockwise = back to the previous letter
         else this.sel = Math.max(0, Math.min((this.matchesNow || []).length - 1, this.sel + dir * 5));
         this.render(); return true;
       }
       return false;
     }
+    countryDialog() {
+      const ctx = this.ctx, S = ctx.settings;
+      const codes = Array.from(new Set(ctx.nav.airports.map((w) => w.country).filter(Boolean))).sort();
+      if (!codes.length) { this.scr.toast('No country data in the loaded airports', 2500); return; }
+      const fields = codes.map((cc) => ({ type: 'check', label: '', text: cc, get: () => (S.get().countries || []).indexOf(cc) >= 0, set: (v) => { const cs = (S.get().countries || []).filter((x) => x !== cc); if (v) cs.push(cc); S.set({ countries: cs }); } }));
+      fields.push({ type: 'section', label: 'Nothing ticked = all countries' });
+      this.scr.open(new FormView(this.scr, { title: 'Country', fields }));
+    }
     choose(w) {
       const ctx = this.ctx;
+      if (this.modeId !== 'rep' && w.type !== 'mark') { // remember for the favourites list
+        const favs = (ctx.settings.get().favAirports || []).filter((n) => n !== w.name);
+        favs.unshift(w.name);
+        ctx.settings.set({ favAirports: favs.slice(0, 15) });
+      }
       if (this.modeId === 'rep') ctx.reportPt = w;
       else ctx.nav.selected[this.modeId === 'wpt' ? 'wpt' : 'apt'] = w;
       this.scr.close();
@@ -238,12 +265,13 @@
     button(i) {
       const l = this.softkeys().labels[i];
       if (l === 'CLOSE') { this.scr.close(); return true; }
-      if (l === 'METHOD') { this.method = { filter: 'icao', icao: 'list', list: 'filter' }[this.method]; this.text = ''; this.cur = 0; this.inList = false; this.sel = 0; this.render(); return true; }
+      if (l === 'METHOD') { this.method = { filter: 'icao', icao: 'list', list: 'favs', favs: 'filter' }[this.method]; this.text = ''; this.cur = 0; this.inList = false; this.sel = 0; this.render(); return true; }
       if (l === 'CHAR>>') { this.cur++; this.text = this.text.padEnd(this.cur, ' '); this.render(); return true; }
+      if (l === 'COUNTRY') { this.countryDialog(); return true; }
       if (l === 'SORT') { this.sort = this.sort === 'dist' ? 'bearing' : 'dist'; this.render(); return true; }
       if (l === 'GOTO') {
         const m = this.matchesNow || [];
-        if (this.method === 'list' || this.inList) { if (m[this.sel]) this.choose(m[this.sel].w); return true; }
+        if (this.method === 'list' || this.method === 'favs' || this.inList) { if (m[this.sel]) this.choose(m[this.sel].w); return true; }
         if (m.length === 1) { this.choose(m[0].w); return true; }
         if (m.length > 1) { this.inList = true; this.sel = 0; this.render(); }
         return true;
