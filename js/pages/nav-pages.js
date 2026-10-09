@@ -651,7 +651,7 @@
       if (this.kind === 'custom' && this.editing) return LX.layout.editSoftkeys(this);
       if (this.panMode) { // 8.2.1.10
         const asp = this.panInfoKind === 'asp' && this.panInfos().asp.zone;
-        return { labels: ['', '', 'CENTER', asp ? 'FREQ' : '', 'INFO', asp ? 'DISMISS' : '', 'GOTO', 'CLOSE'], persist: true };
+        return { labels: ['', '', '', asp ? 'FREQ' : '', 'INFO', asp ? 'DISMISS' : '', 'GOTO', 'CLOSE'], persist: true };
       }
       const nav = this.ctx.nav, run = this.ctx.runner;
       const startKey = !nav.started ? (nav.options.arm && !nav.armed ? 'ARM' : 'START') : 'NEXT';
@@ -818,7 +818,6 @@
     panButton(label) {
       const ctx = this.ctx, scr = this.scr, infos = this.panInfos(), info = infos[this.panInfoKind];
       if (label === 'INFO') this.panInfoIdx = (['wpt', 'asp', 'pos'].indexOf(this.panInfoKind) + 1) % 3;
-      else if (label === 'CENTER') { this.pan = { e: 0, n: 0 }; } // cross back on the glider, stay in pan mode
       else if (label === 'CLOSE') this.leavePan();
       else if (label === 'DISMISS' && info.zone) { ctx.warnings.dismiss(info.zone, 10, performance.now(), 'red'); scr.toast(`${info.zone.name} dismissed for 10 min`, 2000); }
       else if (label === 'FREQ') scr.toast('FREQ: needs a radio bridge', 1500);
