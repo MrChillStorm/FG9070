@@ -151,7 +151,7 @@
     showWaypoints: true, wptMax: 60, wptSize: 6, wptUpper: 'name', wptLower: 'none', wptSingle: false, wptColorize: false, minRwLen: 0,
     showMap: true, shadows: true, terrainQuality: 'high', terrainScheme: 'mountain', terrainOffset: 0, mapBackground: '#000000', showWindLines: false, // Setup > Graphics > Map and Terrain (7.1.7.1)
     // Setup > Graphics > Weather (7.1.7.2): all off, they need internet
-    wxSat: false, wxSatLayer: '', wxSatAll: false, wxSatOpacity: 70, wxFc: false, wxFcParam: 'cloud_cover', wxFcOffset: 0, wxFcOpacity: 60, wxRain: false, wxRainOpacity: 70, wxRainHistory: 0, wxRainFreeze: 3, wxMinZoom: 0,
+    wxSat: false, wxSatLayer: '', wxSatAll: false, wxSatOpacity: 70, wxFc: false, wxFcParam: 'cloud_cover', wxFcOffset: 0, wxFcOpacity: 60, wxRain: false, wxRainOpacity: 70, wxRainHistory: 0, wxRainFreeze: 3, wxMinScale: 0, // wxMinScale: map scale-bar step (km) from which the layers show, 0 = always
     showAirspace: true,
     showThermals: true,
     page: 0,

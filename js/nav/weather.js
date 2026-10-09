@@ -215,8 +215,7 @@
     layers(vp, s) {
       const out = { rasters: [], blobs: null, blobAlpha: 0, attr: [] };
       if (!(s.wxRain || s.wxSat || s.wxFc)) return out;
-      const widthKm = (vp.rect.w * vp.mpp) / 1000;
-      if (s.wxMinZoom > 0 && widthKm < s.wxMinZoom) return out; // only visible when zoomed out far enough
+      if (s.wxMinScale > 0 && vp.scaleKm < s.wxMinScale) return out; // only visible when the map is zoomed out to this scale-bar step or further
       const now = Date.now();
       if (s.wxSat) {
         this.loadSatLayers(); // (re)loads the layer list when it is missing or 15 minutes old

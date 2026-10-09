@@ -33,14 +33,16 @@ wx.satLayers = ['msg_fes:ir039', 'msg_fes:hrv'];
 assert.strictEqual(wx.satLayerName({}), 'msg_fes:hrv');
 
 // layers(): nothing enabled -> nothing; minimum zoom distance hides them when zoomed in
-const vp = { rect: { w: 800, h: 480 }, mpp: 100, box: { lat0: 46, lat1: 47, lon0: 14, lon1: 15 } };
+const vp = { rect: { w: 800, h: 480 }, mpp: 100, scaleKm: 10, box: { lat0: 46, lat1: 47, lon0: 14, lon1: 15 } };
 assert.deepStrictEqual(wx.layers(vp, {}).rasters, []);
 wx.rain = { host: 'https://t', frames: [{ time: 1, path: '/v2/radar/x' }], fetched: Date.now() };
 const on = wx.layers(vp, { wxRain: true, wxRainOpacity: 50 });
 assert.strictEqual(on.rasters.length, 1);
 assert.strictEqual(on.rasters[0].urlFor(5, 17, 11), 'https://t/v2/radar/x/256/5/17/11/2/1_1.png');
 assert.deepStrictEqual(on.attr, ['Weather data by RainViewer']);
-assert.deepStrictEqual(wx.layers(vp, { wxRain: true, wxMinZoom: 500 }).rasters, [], 'zoomed in closer than the minimum: hidden');
+assert.deepStrictEqual(wx.layers(vp, { wxRain: true, wxMinScale: 50 }).rasters, [], 'map scale 10 km is closer than the 50 km step: hidden');
+assert.strictEqual(wx.layers(vp, { wxRain: true, wxMinScale: 10 }).rasters.length, 1, 'at the chosen step: shown');
+assert.strictEqual(wx.layers(Object.assign({}, vp, { scaleKm: 100 }), { wxRain: true, wxMinScale: 50 }).rasters.length, 1, 'wider than the step: shown');
 console.log('weather tests passed');
 
 // plain-language satellite layer names
