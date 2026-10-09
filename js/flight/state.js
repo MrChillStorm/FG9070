@@ -145,7 +145,9 @@
       f.teFast = o.fast; // audio uses its own filter below
       f.netto = o.netto;
       // Relative (super netto) and the speed-to-fly input have their own filters (Setup > Vario Parameters)
-      f.relative = this._lp('rel', o.nettoInst === undefined ? o.netto : o.nettoInst, tMs, s.relTau);
+      // Relative = netto - minimum sink rate of the polar (manual 10.7.3): > 0 means the air climbs faster than the glider's best sink
+      if (polar.minSinkW === undefined) polar.minSinkW = LX.polar.characteristics(polar).minSink.w;
+      f.relative = this._lp('rel', (o.nettoInst === undefined ? o.netto : o.nettoInst) - polar.minSinkW, tMs, s.relTau);
       const nettoSC = this._lp('sc', o.nettoInst === undefined ? o.netto : o.nettoInst, tMs, s.scTau);
       f.teSound = this._soundFilter(o.raw, tMs, s.soundTau);
       this.avgVario.w = s.integrator * 1000;
