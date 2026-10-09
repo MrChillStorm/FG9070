@@ -350,7 +350,8 @@
       if (this.flying) {
         this.maxAlt = Math.max(this.maxAlt, f.alt);
         if (f.gs < 3 && f.ias < 8) {
-          if (this.landedSince === null) this.landedSince = t;
+          if (this.landedSince === null) { this.landedSince = t; this.landNote = 0; if (this.onNote && t - this.flightStart > 60000) this.onNote('Flight will finish in 10 seconds'); }
+          else if (this.landNote === 0 && t - this.landedSince > 7000) { this.landNote = 1; if (this.onNote && t - this.flightStart > 60000) this.onNote('Calculating security!'); } // 11.3
           if (t - this.landedSince > 10000 && t - this.flightStart > 60000) this._landed(t, f);
         } else this.landedSince = null;
       }

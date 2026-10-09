@@ -209,8 +209,18 @@
         // announcements
         const n = flight.navTo(nav.target('tsk'));
         if (n) {
-          if (prevArr !== null && prevArr < 0 && n.arrival >= 0) { LX.speech.say('Final glide reached'); if (ctx.settings.get().alarmFinalGlide) audio.playAlarm(); }
+          if (prevArr !== null && prevArr < 0 && n.arrival >= 0) {
+            LX.speech.say('Final glide reached');
+            if (nav.task.length && nav.started && !nav.finished) screen.toast('Task on final glide!', 3500); // 11.2.6
+            if (ctx.settings.get().alarmFinalGlide) audio.playAlarm();
+          }
           prevArr = n.arrival;
+          // two minutes before the finish (11.2.6)
+          if (nav.task.length && nav.started && !nav.finished) {
+            const left = LX.TaskTools.remaining(nav, flight.f) / Math.max(5, flight.f.gs);
+            if (left < 120 && left > 0 && !ctx._finWarn) { ctx._finWarn = true; screen.toast('Finish in 2 minutes', 4000); }
+            if (left > 150) ctx._finWarn = false;
+          } else ctx._finWarn = false;
         }
         if (flight.thermals.length > prevThermals) {
           const t = flight.thermals[flight.thermals.length - 1];
@@ -242,6 +252,7 @@
   }
 
   // The demo flies before anyone is "flying" (gs threshold); make the track appear promptly.
+  flight.onNote = (text) => screen.toast(text, 3500);
   flight.onLanded = (rec) => { recorder.end({ thermals: rec.thermals }); };
   recorder.load();
   LX.filesUI.enableDrop(screen, ctx);

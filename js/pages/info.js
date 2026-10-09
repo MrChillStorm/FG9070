@@ -138,7 +138,7 @@
     name: ['Name', (x) => `${x.short ? '<span style="color:#ff3b30">&#10005;</span> ' : ''}${x.w.name}`],
     brg: ['Brg', (x, c) => fm.hdg(x.brg)],
     dis: ['Dis', (x) => `${fm.dist(x.d)} ${LX.units.label('dist')}`],
-    arr: ['Arrival', (x) => (x.n ? LX.fmt.signed(LX.units.alt(x.n.arrival), 0) + LX.units.label('alt') : '--'), (x) => (x.n && x.n.arrival < 0 ? '#ff7a5c' : '#7ee07e')],
+    arr: ['Arrival', (x) => (x.n ? LX.fmt.signed(LX.units.alt(x.n.arrival), 0) + LX.units.label('alt') : '--'), (x) => (!x.n ? '#fff' : x.n.arrival >= 0 ? '#fff' : x.n.arrivalMc0 >= 0 ? '#ffd400' : '#ff7a5c')],
     elev: ['Elev', (x) => `${fm.alt(x.w.elev || 0)} ${LX.units.label('alt')}`],
     rwy: ['Rwy', (x) => { const l = x.w.rwLen || (x.w.runways && x.w.runways[0] && x.w.runways[0].len); return l ? `${Math.round(l)} m` : '--'; }],
     freq: ['Freq', (x) => x.w.freq || (x.w.freqs && x.w.freqs[0] && (x.w.freqs[0].mhz || x.w.freqs[0].freq)) || '--'],

@@ -172,6 +172,7 @@ Misc. exist, without Hawk Netto / engine colouring, the glide-ratio averaging ti
 button proximity and font size); in **Hardware** the I8/I9 indicator setups,
 Bridge 232, rear/front seat, angle of attack, engine, flaps and analog inputs. Airspace has no keyless download source I could verify – load a file
 (Setup → Files and Transfer → Airspace lists the free websites).
+Found in the Airport/Waypoint/Task mode check (7.5-7.8, 11): the airport select dialog has no map mode; thermal mode zooms the current page in place instead of switching to a page that is designated as the thermal page.
 In **Polar and Glider** (7.1.13) up to three editable gliders can be copied from the built-in ones (polar a/b/c, reference weight, stall speed with a stall warning, Vne, flap labels, dump rates; scaled by total Weight and Balance weight). Missing: the CG envelope, glider arms, and .lxg load/save.
 
 ## Layout
