@@ -108,7 +108,7 @@
   screen.addMode({ id: 'tsk', name: 'Task', pages: navPages('tsk') });
   screen.addMode({ id: 'stat', name: 'Statistics', pages: ['general', 'task', 'olc'].map((k) => new LX.StatsView(screen, ctx, k)) });
   screen.addMode({ id: 'setup', name: 'Setup', pages: [LX.setup.setupRoot(screen, ctx)] });
-  screen.addMode({ id: 'info', name: 'Information', pages: [LX.info.gpsPage(screen, ctx), LX.info.reportPage(screen, ctx)] });
+  screen.addMode({ id: 'info', name: 'Information', pages: [LX.info.gpsPage(screen, ctx), LX.info.reportPage(screen, ctx), LX.info.skyPage(screen, ctx), LX.info.networkPage(screen, ctx)] });
   screen.addMode({ id: 'near', name: 'Near', pages: [new LX.NearView(screen, ctx)] });
   screen.modeIdx = 2; // Task mode, like a unit with a declared task
   screen.start();

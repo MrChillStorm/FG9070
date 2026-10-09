@@ -163,7 +163,7 @@ indicators/repeater, remote stick, 232 bridge (radio, transponder), team code, N
 hardware settings, the Windows **LX Styler** program and its file formats (the on-device LAYOUT editor *is*
 implemented), SoaringSpot, SD/USB/Connect/Wi-Fi, passwords/admin, languages other than English
 (by decision), gear warning. Also missing: NMEA Output,
-TO NANO (task declaration to a Nano recorder), the satellite sky view and FREQ on the info pages,
+TO NANO (task declaration to a Nano recorder), FREQ on the Near page (the satellite and network pages only say that there is nothing to show),
 centre-of-gravity limits in Weight and Balance, Save to SD, OLC points scoring, and per-symbol fonts in
 the layout editor. Found by a read-through of the manual's Setup chapters (7.1.1-7.1.12): in **QNH and RES** an independent
 Safety Mc, magnetic variation, the four ETA/ETE calculation methods and Soaring start; in **Graphics** (7.1.7) land-feature elements, label zoom, raster maps, airspace

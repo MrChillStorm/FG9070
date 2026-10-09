@@ -64,7 +64,7 @@
         mode: 'sc', // 'sc' cruise | 'vario' climb
         stf: 0, stfDelta: 0, sinkNow: 0,
         circling: false, turnRate: 0,
-        nav: null, flightTime: 0, flying: false,
+        nav: null, flightTime: 0, flying: false, magvar: 0,
         glideRatioNow: Infinity, gForce: 1,
       };
     }
@@ -101,6 +101,7 @@
       f.pitch = num(v.pitch, f.pitch);
       f.roll = num(v.roll, f.roll);
       f.windDir = num(v.wdir, f.windDir);
+      f.magvar = num(v.magvar, f.magvar);
       f.windSpd = num(v.wspd * KT, f.windSpd);
       if (Number.isFinite(v.qnh)) f.qnhSim = v.qnh * LX.util.INHG_TO_HPA;
       if (Number.isFinite(v.gelev)) f.gelev = v.gelev;

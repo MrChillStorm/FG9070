@@ -175,7 +175,7 @@
       this.el.innerHTML = '<div class="titlebar"></div><div class="as-head" style="position:absolute;left:0;right:0;top:24px;height:46px;padding:4px 10px;font-size:22px;letter-spacing:.1em"></div><div class="as-list" style="position:absolute;left:0;right:0;top:72px;bottom:26px;overflow:hidden"></div>';
       this.title = this.el.firstChild; this.head = this.el.children[1]; this.list = this.el.children[2];
     }
-    source() { return this.modeId === 'wpt' ? this.ctx.nav.waypoints : this.ctx.nav.airports; }
+    source() { return this.modeId === 'wpt' || this.modeId === 'rep' ? this.ctx.nav.waypoints : this.ctx.nav.airports; }
     keyOf(w) { return (this.method === 'icao' ? (w.code || w.name) : w.name).toUpperCase(); }
     matches() {
       const f = this.ctx.flight.f;
@@ -191,7 +191,7 @@
     resize() { this.render(); }
     render() {
       const lab = { filter: 'Filter (name)', icao: 'ICAO', list: 'List' }[this.method];
-      this.title.textContent = (this.modeId === 'wpt' ? 'Select waypoint' : 'Select airport') + ' - ' + lab;
+      this.title.textContent = (this.modeId === 'rep' ? 'Select report point' : this.modeId === 'wpt' ? 'Select waypoint' : 'Select airport') + ' - ' + lab;
       if (this.method === 'list') this.head.innerHTML = `<span style="font-size:14px;color:#8fb6ff">Sorted by ${this.sort === 'dist' ? 'distance' : 'bearing'}</span>`;
       else {
         const t = (this.text + ' '.repeat(Math.max(0, this.cur + 1 - this.text.length))).split('');
@@ -230,9 +230,10 @@
     }
     choose(w) {
       const ctx = this.ctx;
-      ctx.nav.selected[this.modeId === 'wpt' ? 'wpt' : 'apt'] = w;
+      if (this.modeId === 'rep') ctx.reportPt = w;
+      else ctx.nav.selected[this.modeId === 'wpt' ? 'wpt' : 'apt'] = w;
       this.scr.close();
-      this.scr.toast(`Target: ${w.name}`, 1400);
+      this.scr.toast(this.modeId === 'rep' ? `Report point: ${w.name}` : `Target: ${w.name}`, 1400);
     }
     button(i) {
       const l = this.softkeys().labels[i];
