@@ -254,7 +254,8 @@
       });
       this.lcd.addEventListener('wheel', (e) => {
         e.preventDefault();
-        LX.device.turn('zoom', e.deltaY > 0 ? -1 : 1);
+        const st = LX.device.wheelStep(e);
+        if (st) LX.device.turn('zoom', -st);
       }, { passive: false });
     }
   }
