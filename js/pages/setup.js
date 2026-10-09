@@ -476,7 +476,9 @@
         status('rain'),
         section('All layers'),
         info('Map tiles', () => LX.Map.rasterStats.loaded + ' loaded, ' + LX.Map.rasterStats.failed + ' failed (a high failed count means the service refused or is slow)', { wide: true }),
-        spin('Minimum zoom distance', 'wxMinZoom', 0, 1000, 50, (v) => (v ? v + ' km' : 'always visible'), { coarse: 4 }),
+        spin('Minimum zoom distance', 'wxMinZoom', 0, 1000, 5, (v) => (v ? v + ' km' : 'always visible'), { coarse: 10 }),
+        info('Map now', () => { const sk = LX.Map.ZOOMS[S().get().mapZoom], w = Math.round(sk * (LX.device.w || 800) / 100); return `scale bar ${sk} km = screen width about ${w} km`; }, { wide: true }),
+        section('Layers show only when the screen is at least this wide (the manual measures zoom as the width of the screen).'),
         section('Free services, no account. They need internet and are for training only, never for flight planning.'),
       ],
     });
