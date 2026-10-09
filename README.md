@@ -127,7 +127,7 @@ by altitude / speed / climb, barogram, statistics, optimisation), **IGC export**
 distance** (3 TP) and a simplified FAI triangle.
 
 **Setup** (manual order) – QNH and RES, Flight Recorder, Weight and Balance, Vario Parameters,
-Display (brightness, orientation, night), Files and Transfer, Graphics (Map and Terrain, **Glider and Track**: flown-path
+Display (brightness, orientation, night), Files and Transfer, Graphics (**Map and Terrain**: 14 terrain colour schemes, shadows, quality, offset, background, wind lines; **Glider and Track**: flown-path
 colouring by Mc / vario / altitude / ground speed, path length, track / target / collision options, range circles, glider
 range area; **Airspace** per-type zoom/colour/width/opacity and ceiling filter; **Waypoints and Airports** labels, max visible,
 colourised reachability and short-runway crosses; **Thermal Mode**; the Optimization, Task, FLARM and Misc. looks), Sounds (Audio, Volumes,
@@ -165,7 +165,7 @@ implemented), SoaringSpot, SD/USB/Connect/Wi-Fi, passwords/admin, languages othe
 TO NANO (task declaration to a Nano recorder), the satellite sky view and FREQ on the info pages,
 centre-of-gravity limits in Weight and Balance, Save to SD, OLC points scoring, and per-symbol fonts in
 the layout editor. Found by a read-through of the manual's Setup chapters (7.1.1-7.1.12): in **QNH and RES** an independent
-Safety Mc, magnetic variation, the four ETA/ETE calculation methods and Soaring start; in **Graphics** (7.1.7) terrain colour schemes and land-feature elements, weather layers (need an account), airspace
+Safety Mc, magnetic variation, the four ETA/ETE calculation methods and Soaring start; in **Graphics** (7.1.7) land-feature elements, label zoom, raster maps, weather layers (need an account), airspace
 zones of inactive/NOTAM types and separate side-view styles and per-type waypoint label details are missing (Glider and Track, Thermal Mode, Optimization, Task, FLARM and
 Misc. exist, without Hawk Netto / engine colouring, the glide-ratio averaging time, flown task and AAT isolines, PCAS timeout,
 button proximity and font size); in **Hardware** the I8/I9 indicator setups,

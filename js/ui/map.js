@@ -37,6 +37,31 @@
     // e, n in metres; ~ 40 km wavelength main relief + finer detail
     return 0.55 * vnoise(e / 22000, n / 22000) + 0.3 * vnoise(e / 7000 + 31, n / 7000 + 17) + 0.15 * vnoise(e / 2200 + 5, n / 2200 + 9);
   }
+  /**
+   * Terrain colour schemes (manual 7.1.7.1). `z` is the ground elevation in m (after the user offset), `alt` the glider's
+   * MSL altitude (for "Relative"). The default Mountain scheme is the original green-to-white ramp.
+   */
+  const mix = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+  const bands = (z, table) => { for (const [lim, col] of table) if (z < lim) return col; return table[table.length - 1][1]; };
+  const SCHEMES = {
+    mountain: (z) => ramp(Math.min(1, Math.max(0, z / 3200))),
+    flatland: (z) => ramp(Math.min(1, Math.max(0, z / 1000))),
+    flatland2: (z) => (z < 150 ? [240, 240, 236] : ramp(Math.min(1, Math.max(0, z / 3200)))),
+    lowcontrast: (z) => mix(ramp(Math.min(1, Math.max(0, z / 3200))), [168, 168, 156], 0.5),
+    highcontrast: (z) => (z < 100 ? [250, 250, 250] : mix(ramp(Math.min(1, Math.max(0, z / 3200))), [90, 90, 90], -0.25).map((v) => Math.max(0, Math.min(255, v)))),
+    zebra: (z) => { const c = ramp(Math.min(1, Math.max(0, z / 3200))); return Math.floor(z / 250) % 2 ? c.map((v) => v * 0.6) : c; },
+    zebra2: (z) => { const c = ramp(Math.min(1, Math.max(0, z / 3200))); return Math.floor(z / 250) % 2 ? c.map((v) => v * 0.85) : c; },
+    icao: (z) => bands(z, [[200, [200, 230, 180]], [500, [225, 238, 170]], [1000, [245, 225, 160]], [1500, [235, 200, 140]], [2000, [215, 170, 120]], [3000, [190, 140, 110]], [1e9, [235, 235, 235]]]),
+    cliffs: (z) => mix([120, 150, 110], [215, 205, 190], Math.min(1, Math.max(0, z / 3000))),
+    atlas: (z) => bands(z, [[100, [150, 200, 140]], [300, [190, 215, 150]], [700, [232, 226, 160]], [1200, [226, 196, 140]], [2000, [200, 160, 120]], [3000, [176, 140, 130]], [1e9, [230, 220, 225]]]),
+    grayscale: (z) => { const g = 60 + 190 * Math.min(1, Math.max(0, z / 3200)); return [g, g, g]; },
+    osm: () => [236, 232, 218],
+    himalaya: (z) => ramp(Math.min(1, Math.max(0, z / 8000))),
+    relative: (z, alt) => (z >= alt ? mix([255, 170, 60], [220, 40, 30], Math.min(1, (z - alt) / 600)) : [246, 246, 246]),
+  };
+  const SCHEME_NAMES = { mountain: 'Mountain', flatland: 'Flatland', flatland2: 'Flatland 2', lowcontrast: 'Low contrast', highcontrast: 'High contrast', zebra: 'Zebra', zebra2: 'Zebra 2', icao: 'ICAO', cliffs: 'Cliffs', atlas: 'Atlas', grayscale: 'Grayscale', osm: 'OSM', himalaya: 'Himalaya', relative: 'Relative (to altitude)' };
+  const QUALITY = { low: [70, 42], medium: [100, 60], high: [140, 84] };
+
   const AIRSPACE_TYPES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'CTR', 'TMA', 'R', 'P', 'Q', 'DNG', 'TMZ', 'RMZ', 'W', 'GSEC']; // + 'other'
   const RAMP = [
     [0.0, [86, 128, 64]], [0.30, [118, 156, 74]], [0.48, [178, 192, 100]],
@@ -127,9 +152,13 @@
       const own = vp.own ? toScreen(vp.own.lat, vp.own.lon) : [vp.cx, vp.cy];
       vp.ox = own[0]; vp.oy = own[1];
 
-      this.drawBackdrop(c, vp, rot);
-      if (vp.tiles && vp.tiles !== 'off') this.drawTiles(c, vp, toScreen);
       const st = data.style || {};
+      c.fillStyle = st.mapBackground || '#000000'; c.fillRect(R.x, R.y, R.w, R.h);
+      if (st.showMap !== false) {
+        this.drawBackdrop(c, vp, rot, st, data.f);
+        if (vp.tiles && vp.tiles !== 'off') this.drawTiles(c, vp, toScreen);
+      }
+      if (st.showWindLines && data.f) this.drawWindLines(c, vp, data.f);
       if (st.showRangeCircles !== false) this.drawRings(c, vp, st);
       if (data.range && st.showGlideArea) this.drawGlideArea(c, data.range, toScreen, vp, st);
       if (data.airspaces) this.drawAirspace(c, data.airspaces, toScreen, vp, st);
@@ -158,8 +187,12 @@
      * noise elsewhere; colour by height, hillshade lit from the north-west in WORLD coordinates (so the
      * relief does not spin with the track-up rotation).
      */
-    drawBackdrop(c, vp, rot) {
-      const W = 140, H = 84, R = vp.rect;
+    drawBackdrop(c, vp, rot, st, fl) {
+      st = st || {};
+      if (st.terrainQuality === 'off') return; // only the background colour (and tiles) remain
+      const [W, H] = QUALITY[st.terrainQuality] || QUALITY.high, R = vp.rect;
+      const scheme = SCHEMES[st.terrainScheme] || SCHEMES.mountain, off = st.terrainOffset || 0, shadows = st.shadows !== false;
+      const alt = fl ? fl.alt : 0;
       if (this.bg.width !== W) { this.bg.width = W; this.bg.height = H; this.img = this.bgc.createImageData(W, H); }
       const d = this.img.data;
       const cs = Math.cos(rot), sn = Math.sin(rot);
@@ -187,13 +220,12 @@
       for (let j = 0; j < H; j++) {
         for (let k = 0; k < W; k++) {
           const i = j * W + k;
-          const t = Math.min(1, Math.max(0, z[i] / 3200));
-          const col = ramp(t);
+          const col = scheme(z[i] + off, alt);
           const zl = z[j * W + Math.max(0, k - 1)], zr = z[j * W + Math.min(W - 1, k + 1)];
           const zu = z[Math.max(0, j - 1) * W + k], zd = z[Math.min(H - 1, j + 1) * W + k];
           const gx = (zr - zl) / (2 * cell), gy = (zu - zd) / (2 * cell); // slope: right and up on the screen
           const ge = gx * cs + gy * sn, gn = -gx * sn + gy * cs; // slope in world east / north
-          const sh = Math.max(-0.6, Math.min(0.6, (ge - gn) * 0.7071 * 1.6)); // light from the NW
+          const sh = shadows ? Math.max(-0.6, Math.min(0.6, (ge - gn) * 0.7071 * 1.6 * (st.terrainScheme === 'cliffs' ? 2 : 1))) : 0; // light from the NW
           d[p++] = Math.max(0, Math.min(255, (col[0] + sh * 110) * dark));
           d[p++] = Math.max(0, Math.min(255, (col[1] + sh * 110) * dark));
           d[p++] = Math.max(0, Math.min(255, (col[2] + sh * 100) * dark));
@@ -204,6 +236,21 @@
       this.bgc.putImageData(this.img, 0, 0);
       c.imageSmoothingEnabled = true;
       c.drawImage(this.bg, R.x, R.y, R.w, R.h);
+    }
+
+    /** Wind direction lines (manual 7.1.7.1): short strokes along the wind, longer for stronger wind. */
+    drawWindLines(c, vp, fl) {
+      if (!(fl.windSpd > 0.3)) return;
+      const R = vp.rect, rel = (fl.windDir + 180 - (vp.up === 'track' ? vp.track : 0)) * D2R; // flow direction on the screen
+      const len = Math.min(34, 8 + fl.windSpd * 2.5), dx = Math.sin(rel) * len / 2, dy = -Math.cos(rel) * len / 2, step = 110;
+      c.save(); c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 2; c.lineCap = 'round';
+      for (let y = R.y + step / 2; y < R.y + R.h; y += step) for (let x = R.x + step / 2 + ((Math.round((y - R.y) / step) % 2) * step) / 2; x < R.x + R.w; x += step) {
+        c.beginPath(); c.moveTo(x - dx, y - dy); c.lineTo(x + dx, y + dy);
+        c.moveTo(x + dx, y + dy); c.lineTo(x + dx - Math.sin(rel - 0.5) * 7, y + dy + Math.cos(rel - 0.5) * 7);
+        c.moveTo(x + dx, y + dy); c.lineTo(x + dx - Math.sin(rel + 0.5) * 7, y + dy + Math.cos(rel + 0.5) * 7);
+        c.stroke();
+      }
+      c.restore();
     }
 
     /** Raster tiles drawn under the overlays; each tile is mapped with an affine transform so
@@ -600,5 +647,5 @@
     }
   }
 
-  LX.Map = { Renderer: MapRenderer, AIRSPACE_TYPES, ZOOMS, terrain, ramp, tileMath: { tileX, tileY, tileLon, tileLat, tileZoom }, TILE_STYLES };
+  LX.Map = { Renderer: MapRenderer, AIRSPACE_TYPES, SCHEMES, SCHEME_NAMES, ZOOMS, terrain, ramp, tileMath: { tileX, tileY, tileLon, tileLat, tileZoom }, TILE_STYLES };
 })(window);

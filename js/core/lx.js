@@ -149,6 +149,7 @@
     // Setup > Graphics > Airspace (7.1.7.3) and Waypoints and Airports (7.1.7.4)
     airspaceBelow: 0, airspaceType: 'A', airspaceStyle: {}, // airspaceBelow: show only zones starting below this MSL altitude (m), 0 = all
     showWaypoints: true, wptMax: 60, wptSize: 6, wptUpper: 'name', wptLower: 'none', wptSingle: false, wptColorize: false, minRwLen: 0,
+    showMap: true, shadows: true, terrainQuality: 'high', terrainScheme: 'mountain', terrainOffset: 0, mapBackground: '#000000', showWindLines: false, // Setup > Graphics > Map and Terrain (7.1.7.1)
     showAirspace: true,
     showThermals: true,
     page: 0,

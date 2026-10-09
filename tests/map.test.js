@@ -26,4 +26,12 @@ const as = col('autospan', h, 1);
 assert.strictEqual(as(h[0]), 'hsl(0,95%,50%)'); assert.strictEqual(as(h[2]), 'hsl(240,95%,50%)');
 const av = col('avgvario', [[0, 0, 0, 3, 0], [0, 0, 0, 1, 0], [0, 0, 0, -1, 0]], 1); // mean 1
 assert.strictEqual(av([0, 0, 0, 3, 0]), '#ff3b30'); assert.strictEqual(av([0, 0, 0, 1, 0]), '#ff9a1f'); assert.strictEqual(av([0, 0, 0, -1, 0]), '#2f7bff');
+// terrain colour schemes (7.1.7.1)
+const S = LX.Map.SCHEMES;
+assert.deepStrictEqual(S.mountain(0), LX.Map.ramp(0)); assert.deepStrictEqual(S.mountain(3200), LX.Map.ramp(1));
+assert.deepStrictEqual(S.relative(2000, 1500).map(Math.round), [Math.round(255 + (220 - 255) * (500 / 600)), Math.round(170 + (40 - 170) * (500 / 600)), Math.round(60 + (30 - 60) * (500 / 600))], 'above the glider: orange -> red');
+assert.deepStrictEqual(S.relative(1000, 1500), [246, 246, 246], 'reachable (below the glider): white');
+assert.ok(S.grayscale(0)[0] < S.grayscale(3000)[0], 'grayscale gets lighter with height');
+assert.deepStrictEqual(S.flatland2(100), [240, 240, 236], 'low ground is white in Flatland 2');
+assert.strictEqual(Object.keys(LX.Map.SCHEME_NAMES).length, Object.keys(S).length, 'every scheme has a name');
 console.log('map tests passed');

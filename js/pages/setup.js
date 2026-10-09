@@ -266,12 +266,19 @@
     return new FormView(scr, {
       title: 'Map and Terrain',
       fields: [
+        check('', 'showMap', 'Show map'),
+        check('', 'shadows', 'Shadows'),
+        Object.assign({ type: 'select', label: 'Terrain quality', options: ['high', 'medium', 'low', 'off'], show: (v) => ({ high: 'High', medium: 'Medium', low: 'Low', off: 'Off (no terrain)' }[v]) }, bind('terrainQuality')),
+        Object.assign({ type: 'select', label: 'Colour scheme', options: Object.keys(LX.Map.SCHEME_NAMES), show: (v) => LX.Map.SCHEME_NAMES[v] }, bind('terrainScheme')),
+        spin('Offset', 'terrainOffset', -1000, 1000, 50, (v) => (v > 0 ? '+' : '') + num(U().alt(v), 0) + ' ' + U().label('alt'), { coarse: 4 }),
+        colorSel('Background', 'mapBackground'),
+        check('', 'showWindLines', 'Show wind direction'),
         Object.assign({ type: 'select', label: 'Map orientation', options: ['track', 'north'], show: (v) => (v === 'track' ? 'Track up' : 'North up') }, bind('mapUp')),
         Object.assign({ type: 'select', label: 'Base map', options: ['off', 'opentopomap', 'osm'], wide: true, show: (v) => ({ off: 'Procedural terrain (offline)', opentopomap: 'OpenTopoMap tiles (online)', osm: 'OpenStreetMap tiles (online)' }[v]) }, bind('tiles')),
         Object.assign({ type: 'select', label: 'Terrain data', options: ['terrarium', 'off'], wide: true, show: (v) => (v === 'off' ? 'Procedural terrain only (offline)' : 'Elevation tiles (online, falls back to procedural)') }, bind('terrain')),
         check('', 'showAirspace', 'Show airspace'),
         check('', 'showThermals', 'Show thermal markers'),
-        section('Tiles need internet access in the browser; attribution is drawn on the map.'),
+        section('Tiles need internet access in the browser; attribution is drawn on the map. Label zoom, land-feature elements and raster maps are not configurable.'),
       ],
     });
   }
