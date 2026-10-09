@@ -9,6 +9,8 @@
  *
  * Replay (VIEW): map with the flown path coloured by altitude / ground speed /
  * climb, a barogram, and four sub-views (map, statistics, optimisation, task).
+ *   In flight PAGE selects the subpage (flight / task / last 60 minutes, 7.4.2.1); between thermal columns the
+ *   average IAS, efficiency, distance and overfly factor of that leg are shown.
  * Not implemented: SaveToSD/Connect, OLC points scoring.
  */
 (function (global) {
@@ -47,6 +49,7 @@
       this.c = this.cv.getContext('2d');
       this.logSel = 0; this.last = 0;
       this.opt = null; this.optT = 0;
+      this.sub = 0; this.sel = 0; this.detail = false;
     }
     show() { this.resize(); }
     resize() { sizeCanvas(this); }
@@ -92,7 +95,10 @@
           c.fillStyle = '#fff'; c.textAlign = 'center'; c.font = '13px Verdana';
           c.fillText(fm.vario(t.avg), x + w / 2, y0 + ch + 16);
           // between thermals: average efficiency of the glide (manual 7.4.2)
-          if (i > 0) { const p = ths[i - 1]; const d = geo.dist(p.lat, p.lon, t.lat, t.lon); const lost = p.alt1 - t.alt0; c.fillStyle = '#8fb6ff'; c.font = '11px Verdana'; c.fillText(lost > 20 ? `E ${Math.round(d / lost)}` : '', x0 + colw * i, y0 + 12); }
+          if (i > 0) {
+            const g = this.legBetween(ths[i - 1], t), bx = x0 + colw * i;
+            if (g) [`${fm.spd(g.ias)}`, g.eff ? `E ${Math.round(g.eff)}` : 'E --', `${fm.dist(g.dist)}`, `${Math.round(g.overfly)}%`].forEach((txt, k) => sym.otext(c, txt, bx, y0 + 14 + k * 13, 10, { align: 'center', weight: 'normal', color: '#8fb6ff' }));
+          }
         });
         const avg4 = fl.lastThermalsAvg(4);
         sym.otext(c, avg4 === null ? '---' : fm.vario(avg4), W - 14, y0 + 40, 30, { align: 'right', color: '#ff7a5c' });
@@ -100,21 +106,96 @@
       }
       const f = fl.f;
       const circPct = fl.thermals.length ? Math.round((fl.thermals.reduce((a, t) => a + t.dur, 0) / Math.max(1, f.flightTime)) * 100) : 0;
-      const rows = [
-        ['Avg. vario', fm.vario(f.avgV) + ' ' + LX.units.label('vario')],
-        ['Ground speed', fm.spd(f.gs) + ' ' + LX.units.label('speed')],
-        ['Dist. flown', fm.dist(this.ctx.flownDist) + ' ' + LX.units.label('dist')],
-        ['Circling', circPct + '%'],
-        ['Thermals', String(fl.thermals.length)],
-        ['Duration', fm.hms(f.flightTime)],
-        ['Max altitude', fm.alt(fl.maxAlt || f.alt) + ' ' + LX.units.label('alt')],
-      ];
-      rows.forEach((r, i) => {
-        const col = LX.device.portrait ? 0 : i % 2, row = LX.device.portrait ? i : Math.floor(i / 2);
-        const x = 14 + col * (W / 2), y = chartH + 60 + row * 30;
-        sym.otext(c, r[0], x, y, 14, { weight: 'normal', color: '#8fb6ff', align: 'left', halo: 'transparent' });
-        sym.otext(c, r[1], x + 130, y, 17, { align: 'left', halo: 'transparent' });
+      const U = LX.units.label, n = this.ctx.nav, r = this.ctx.runner;
+      const subs = ['Flight', 'Task', 'Last 60 min'];
+      let rows;
+      if (this.sub === 0) {
+        const o = this.optimised(this.fixesNow(0), 'all');
+        const dist = o ? o.dist : 0;
+        rows = [
+          ['Avg. vario', fm.vario(f.avgV) + ' ' + U('vario')],
+          ['Dis. flown', fm.dist(dist) + ' ' + U('dist')],
+          ['XC speed', fm.spd(this.xcSpeed(dist, f)) + ' ' + U('speed')],
+          ['Circling', circPct + '%'],
+          ['Thermals', String(fl.thermals.length)],
+          ['Duration', fm.hms(f.flightTime)],
+          ['Max altitude', fm.alt(fl.maxAlt || f.alt) + ' ' + U('alt')],
+        ];
+      } else if (this.sub === 1) {
+        if (!n.task.length || !n.started) rows = [['Task', n.task.length ? 'not started' : 'no task']];
+        else {
+          const total = LX.TaskTools.distance(n), rem = LX.TaskTools.remaining(n, f);
+          const el = ((n.finished ? n.finishTime : f.t) - n.startTime) / 1000;
+          rows = [
+            ['Distance', fm.dist(total) + ' ' + U('dist')],
+            ['Dis. flown', fm.dist(Math.max(0, total - rem)) + ' ' + U('dist')],
+            ['Remaining', fm.dist(rem) + ' ' + U('dist')],
+            ['Task speed', fm.spd(r.taskSpeed(f, f.t)) + ' ' + U('speed')],
+            ['Task time', fm.hms(el)],
+            ['Avg. vario', fm.vario(f.avgV) + ' ' + U('vario')],
+          ];
+        }
+      } else {
+        const fx = this.fixesNow(3600), onTask = n.started && !n.finished && (f.t - n.startTime) < 3600e3;
+        const o = this.optimised(fx, 'h60');
+        const dist = onTask ? Math.max(0, LX.TaskTools.distance(n) - LX.TaskTools.remaining(n, f)) : (o ? o.dist : 0);
+        const dur = fx.length > 1 ? fx[fx.length - 1][0] - fx[0][0] : 0;
+        const vs = fx.length > 1 ? (fx[fx.length - 1][3] - fx[0][3]) / Math.max(1, dur) : 0;
+        rows = [
+          ['Dis. flown', fm.dist(dist) + ' ' + U('dist') + (onTask ? '  (On Task)' : '')],
+          ['Speed', fm.spd(dur > 60 ? dist / dur : 0) + ' ' + U('speed')],
+          ['Avg. vario', fm.vario(vs) + ' ' + U('vario')],
+          ['Duration', fm.hms(dur)],
+        ];
+      }
+      sym.otext(c, subs[this.sub] + '  (PAGE: next)', 14, chartH + 40, 13, { weight: 'normal', color: '#ffd400', align: 'left', halo: 'transparent' });
+      rows.forEach((r2, k) => {
+        const col = LX.device.portrait ? 0 : k % 2, row = LX.device.portrait ? k : Math.floor(k / 2);
+        const x = 14 + col * (W / 2), y = chartH + 70 + row * 30;
+        sym.otext(c, r2[0], x, y, 14, { weight: 'normal', color: '#8fb6ff', align: 'left', halo: 'transparent' });
+        sym.otext(c, r2[1], x + 130, y, 17, { align: 'left', halo: 'transparent' });
       });
+    }
+
+    /** Recorded fixes of the current flight, limited to the last `sec` seconds (0 = all). */
+    fixesNow(sec) {
+      const rec = this.ctx.recorder, fx = rec && rec.cur ? rec.cur.fixes : [];
+      if (!sec || !fx.length) return fx;
+      const t0 = fx[fx.length - 1][0] - sec;
+      let k = 0; while (k < fx.length && fx[k][0] < t0) k++;
+      return fx.slice(k);
+    }
+    optimised(fx, key) { // cached per key: the optimiser is expensive
+      const now = performance.now();
+      this.optCache = this.optCache || {};
+      const c = this.optCache[key];
+      if (!fx || fx.length < 5) return null;
+      if (c && now - c.t < 8000) return c.res;
+      const o = optimise(fx, this.ctx.settings);
+      this.optCache[key] = { t: now, res: o && (o.free || o.tri) ? (o.free || o.tri) : null };
+      return this.optCache[key].res;
+    }
+    /** XC speed: average speed over the flight corrected for the altitude difference with the average vario (7.4.2.1). */
+    xcSpeed(dist, f) {
+      const fx = this.fixesNow(0);
+      if (fx.length < 2 || dist <= 0) return 0;
+      const t = fx[fx.length - 1][0] - fx[0][0], dh = fx[0][3] - fx[fx.length - 1][3]; // height lost
+      const tc = t + (f.avgV > 0.1 ? dh / f.avgV : 0);
+      return dist / Math.max(60, tc);
+    }
+    /** Average IAS, efficiency, distance and overfly factor between two thermals (manual 7.4.2). */
+    legBetween(a, b) {
+      const rec = this.ctx.recorder;
+      if (!rec || !rec.cur) return null;
+      const cur = rec.cur, sod = (t) => cur.startSod + (t - cur.t0) / 1000;
+      const s0 = sod(a.t1), s1 = sod(b.t0);
+      const fx = cur.fixes.filter((x) => x[0] >= s0 && x[0] <= s1);
+      if (fx.length < 2) return null;
+      let path = 0, ias = 0;
+      for (let k = 1; k < fx.length; k++) path += geo.dist(fx[k - 1][1], fx[k - 1][2], fx[k][1], fx[k][2]);
+      fx.forEach((x) => { ias += x[6] || x[4]; });
+      const straight = geo.dist(a.lat, a.lon, b.lat, b.lon), lost = a.alt1 - b.alt0;
+      return { ias: ias / fx.length, dist: straight, overfly: straight > 50 ? (path / straight) * 100 : 100, eff: lost > 20 ? straight / lost : 0 };
     }
 
     /* ---- logbook */
@@ -144,8 +225,10 @@
       c.font = '12px Verdana'; c.fillStyle = '#8fb6ff';
       ['Name', 'Dist', 'Time', 'Speed'].forEach((h, i) => c.fillText(h, cols[i], 68));
       c.font = '15px Verdana';
+      this.sel = Math.min(this.sel, n.task.length - 1);
       n.task.forEach((p, i) => {
         const y = 92 + i * 26;
+        if (i === this.sel) { c.fillStyle = '#3d4047'; c.fillRect(4, y - 17, W - 8, 24); }
         const leg = r.legs.find((l, k) => k === i);
         c.fillStyle = i === n.active && n.started && !n.finished ? '#ffd400' : '#fff';
         const nm = i === 0 ? 'START' : i === n.task.length - 1 ? 'FINISH' : `${i}. POINT`;
@@ -169,7 +252,18 @@
         c.fillText(fm.hms(el), cols[2], y);
         c.fillText(`${fm.spd(r.taskSpeed(f, f.t))} ${LX.units.label('speed')}`, cols[3], y);
       } else c.fillText('not started', cols[1], y);
+      if (this.detail && n.task[this.sel]) { // VIEW: more about the selected point
+        const p = n.task[this.sel], z = p.zone || {}, prev = this.sel > 0 ? n.task[this.sel - 1].wp : null;
+        const lines = [
+          `${p.wp.name}   ${p.wp.lat.toFixed(4)}°  ${p.wp.lon.toFixed(4)}°   elev ${fm.alt(p.wp.elev || 0)} ${LX.units.label('alt')}`,
+          `Zone: radius ${fm.dist(p.radius || z.r1 || 0)} ${LX.units.label('dist')}${z.a1 ? '  angle ' + z.a1 + '°' : ''}`,
+          prev ? `Leg: ${fm.dist(geo.dist(prev.lat, prev.lon, p.wp.lat, p.wp.lon))} ${LX.units.label('dist')}  course ${fm.hdg(geo.bearing(prev.lat, prev.lon, p.wp.lat, p.wp.lon))}` : 'Start of the task',
+        ];
+        c.fillStyle = '#111'; c.fillRect(4, this.H - 112, W - 8, 84);
+        lines.forEach((t, k) => sym.otext(c, t, 12, this.H - 92 + k * 24, 14, { weight: 'normal', align: 'left', halo: 'transparent' }));
+      }
     }
+
 
     /* ---- OLC / FAI optimisation */
     drawOlc(now) {
@@ -189,26 +283,51 @@
       sym.otext(c, `Optimization: ${s.optPoints} points`, 10, 46, 13, { weight: 'normal', color: '#8fb6ff', halo: 'transparent' });
       row(84, s.optPoints === 5 ? 'Free distance (OLC, 3 TP)' : 'Free distance (1 TP)', this.opt.free, '#7ee07e');
       row(160, 'FAI triangle (simplified)', this.opt.tri, '#ffd400');
+      const pts = (this.opt.free && this.opt.free.pts) || [];
+      if (pts.length) {
+        this.sel = Math.min(this.sel, pts.length - 1);
+        sym.otext(c, 'Optimised points (PAGE selects, VIEW details)', 10, 214, 12, { weight: 'normal', color: '#8fb6ff', halo: 'transparent' });
+        pts.forEach((p, i) => {
+          const y = 238 + i * 22;
+          if (i === this.sel) { c.fillStyle = '#3d4047'; c.fillRect(4, y - 15, W - 8, 21); }
+          const t = new Date(p.t * 1000).toISOString().slice(11, 19);
+          sym.otext(c, `${i === 0 ? 'START' : i === pts.length - 1 ? 'FINISH' : 'TP ' + i}   ${t}Z   ${fm.alt(p.alt)} ${LX.units.label('alt')}${i > 0 ? '   leg ' + fm.dist(geo.dist(pts[i - 1].lat, pts[i - 1].lon, p.lat, p.lon)) + ' ' + LX.units.label('dist') : ''}`, 12, y, 14, { weight: 'normal', align: 'left', halo: 'transparent' });
+        });
+        if (this.detail) {
+          const p = pts[this.sel];
+          c.fillStyle = '#111'; c.fillRect(4, this.H - 90, W - 8, 52);
+          sym.otext(c, `${p.lat.toFixed(5)}°  ${p.lon.toFixed(5)}°   ${fm.alt(p.alt)} ${LX.units.label('alt')}   GS ${fm.spd((src.fixes[p.i] || [])[4] || 0)} ${LX.units.label('speed')}`, 12, this.H - 60, 14, { weight: 'normal', align: 'left', halo: 'transparent' });
+        }
+      }
       sym.otext(c, 'Distance only; not an official score. Source: ' + (src === (rec && rec.cur) ? 'current flight' : 'last flight'), 10, this.H - 30, 12, { weight: 'normal', color: '#8a8f99', halo: 'transparent' });
     }
 
     softkeys() {
       const fl = this.ctx.flight;
-      if (this.kind === 'general') return { labels: fl.flying ? ['', '', '', '', '', '', 'THERMALS', ''] : ['', '', '', '', '', 'VIEW', 'SAVE', 'DELETE'], persist: true };
-      return { labels: ['', '', '', '', '', '', '', ''], persist: true };
+      const L = ['', '', '', '', 'PAGE>>', '', '', ''];
+      if (this.kind === 'general') { if (fl.flying) L[6] = 'THERMALS'; else { L[5] = 'VIEW'; L[6] = 'SAVE'; L[7] = 'DELETE'; } }
+      else L[7] = 'VIEW';
+      return { labels: L, persist: true };
     }
     button(i) {
       const l = this.softkeys().labels[i];
       const rec = this.ctx.recorder;
-      if (l === 'THERMALS') { this.showThermals = this.showThermals === false; }
+      if (l === 'PAGE>>') this.scr.setPage(this.scr.pageIdx[this.scr.mode.id] + 1);
+      else if (l === 'VIEW' && this.kind !== 'general') this.detail = !this.detail;
+      else if (l === 'THERMALS') { this.showThermals = this.showThermals === false; }
       else if (l === 'VIEW' && rec && rec.flights[this.logSel]) this.scr.open(LX.replay.view(this.scr, this.ctx, this.logSel));
       else if (l === 'SAVE') { if (rec && rec.flights[this.logSel] && rec.downloadIGC(this.logSel)) this.scr.toast('IGC file downloaded (unofficial)', 2500); else this.scr.toast('No flight selected', 1500); }
       else if (l === 'DELETE' && rec && rec.flights[this.logSel]) this.scr.open(new LX.forms.Popup(this.scr, 'Delete flight', 'Delete this flight from the logbook?', { 4: { label: 'NO', run: (s) => s.close() }, 7: { label: 'YES', run: (s) => { rec.remove(this.logSel); this.logSel = 0; s.close(); } } }));
       return true;
     }
     knob(name, dir) {
-      if (name === 'page' && this.kind === 'general' && !this.ctx.flight.flying) { this.logSel = clamp(this.logSel + dir, 0, Math.max(0, (this.nFlights || 1) - 1)); return true; }
-      return false;
+      if (name !== 'page') return false;
+      if (this.kind === 'general') {
+        if (this.ctx.flight.flying) this.sub = (this.sub + dir + 3) % 3;
+        else this.logSel = clamp(this.logSel + dir, 0, Math.max(0, (this.nFlights || 1) - 1));
+      } else this.sel = Math.max(0, this.sel + dir);
+      this.last = 0;
+      return true;
     }
   }
 
